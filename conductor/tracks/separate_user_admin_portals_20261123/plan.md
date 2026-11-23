@@ -1,0 +1,47 @@
+# Implementation Plan: Separate User Portal and Admin Console Systems
+
+## Phase 1: Backend Role & Authorization Guardrails for Admin Endpoints
+- [ ] Task: Write backend unit tests for role-based authorization on admin endpoints
+  - [ ] Create tests verifying 403 Forbidden for non-admin tokens on `/api/v1/provisioning/*`, `/api/v1/sync/run`, and skill review/approval endpoints
+  - [ ] Create tests verifying successful 200/202 responses for authorized admin tokens
+- [ ] Task: Implement admin authorization dependencies in backend
+  - [ ] Add `require_admin_role` and `is_admin_user` helpers in `backend/app/auth.py`
+  - [ ] Protect `/api/v1/provisioning` router endpoints with `require_admin_role`
+  - [ ] Protect `/api/v1/sync/run` endpoint with `require_admin_role`
+  - [ ] Protect skill approval/rejection endpoints in `backend/app/routers/skills.py` with `require_admin_role`
+- [ ] Task: Phase 1 Verification & Checkpoint (Refer to workflow.md)
+
+## Phase 2: User Portal and Admin Console UI Component Scaffolding
+- [ ] Task: Write frontend unit tests for separate User Portal and Admin Console components
+  - [ ] Create test suite verifying User Portal renders only Apps, Skills, Agents, MCP and excludes admin panels
+  - [ ] Create test suite verifying Admin Console renders Governance, Provisioning, Sync and blocks non-admin users
+  - [ ] Create test suite for Portal Switcher and unauthorized access fallback
+- [ ] Task: Implement dedicated User Portal component (`frontend/src/components/UserPortal.tsx`)
+  - [ ] Encapsulate user layout with user-centric navigation rail (Apps, Skills, Agents, MCP)
+  - [ ] Connect AppCard, CatalogGrid, SkillsSection (user view), AgentsView, and McpServersView
+  - [ ] Remove all admin governance and provisioning clutter from user views
+- [ ] Task: Implement dedicated Admin Console component (`frontend/src/components/AdminConsole.tsx`)
+  - [ ] Encapsulate admin layout with admin-centric navigation rail (Skill Governance, Provisioning, Sync Dashboard, Access Overview)
+  - [ ] Integrate Skill Governance review studio, ProvisioningStudio, and catalog sync triggers
+  - [ ] Implement unauthorized access guard with return button if non-admin accesses Admin Console
+- [ ] Task: Phase 2 Verification & Checkpoint (Refer to workflow.md)
+
+## Phase 3: Header Portal Switcher & App Router Integration
+- [ ] Task: Write unit tests for Header portal switcher and route management in `App.tsx`
+  - [ ] Test that portal toggle appears only for admin roles
+  - [ ] Test switching between User and Admin systems retains auth state and theme
+  - [ ] Test URL path synchronization (`/` vs `/admin`)
+- [ ] Task: Update `Header.tsx` with Portal Switcher
+  - [ ] Add interactive tab/pill toggle: "User Portal" | "Admin Console" for authorized admin users
+  - [ ] Display administrative badge when currently inside Admin Console
+- [ ] Task: Refactor `App.tsx` into top-level System Router
+  - [ ] Manage active system state (`user-portal` vs `admin-console`) based on URL and user selection
+  - [ ] Render `UserPortal` or `AdminConsole` accordingly
+  - [ ] Maintain global auth, theme, and project context across both systems
+- [ ] Task: Phase 3 Verification & Checkpoint (Refer to workflow.md)
+
+## Phase 4: Full System Verification, Regressions & Conductor Registry
+- [ ] Task: Run full frontend test suite (`npm test -- --run`) and production build (`npm run build`)
+- [ ] Task: Run backend test suite (`.venv/bin/pytest`) and resolve any regressions
+- [ ] Task: Update `conductor/product.md` and `conductor/tech-stack.md` to reflect the two-system architecture
+- [ ] Task: Phase 4 Verification & Checkpoint (Refer to workflow.md)

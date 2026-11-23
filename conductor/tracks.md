@@ -19,3 +19,9 @@
 
 - [x] **Track: GCP Console UI Redesign & Project Cutover**
   *Link: [./tracks/cymbal_gcp_console_ui_and_cutover_20261110/index.md](./tracks/cymbal_gcp_console_ui_and_cutover_20261110/index.md)*
+
+---
+
+- [ ] **Track: Separate User Portal and Admin Console Systems**
+  *Link: [./tracks/separate_user_admin_portals_20261123/index.md](./tracks/separate_user_admin_portals_20261123/index.md)*
+
