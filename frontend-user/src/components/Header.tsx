@@ -105,19 +105,6 @@ export function Header({
             </span>
           </div>
 
-          <button
-            type="button"
-            onClick={toggleTheme}
-            aria-label="Toggle color theme"
-            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-slate-800 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
-          >
-            {theme === 'dark' ? (
-              <Sun className="h-3.5 w-3.5 text-amber-400" aria-hidden="true" />
-            ) : (
-              <Moon className="h-3.5 w-3.5 text-slate-600" aria-hidden="true" />
-            )}
-          </button>
-
           {/* User Profile Dropdown (Sign Out only) */}
           <div className="relative">
             <button
@@ -177,6 +164,19 @@ export function Header({
               </div>
             )}
           </div>
+
+          <button
+            type="button"
+            onClick={toggleTheme}
+            aria-label="Toggle color theme"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-slate-800 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+          >
+            {theme === 'dark' ? (
+              <Sun className="h-3.5 w-3.5 text-amber-400" aria-hidden="true" />
+            ) : (
+              <Moon className="h-3.5 w-3.5 text-slate-600" aria-hidden="true" />
+            )}
+          </button>
         </div>
       </div>
     </header>
