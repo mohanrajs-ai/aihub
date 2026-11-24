@@ -72,6 +72,30 @@ class CatalogResponse(pydantic.BaseModel):
     groups: list[str] = pydantic.Field(default_factory=list)
 
 
+class AccessRequestCreate(pydantic.BaseModel):
+    """Payload for submitting an application or AGY license access request."""
+
+    request_type: str = "APP_ACCESS"
+    target_id: str
+    target_name: str
+    requested_group: str = ""
+    justification: str = ""
+
+
+class AccessRequestItem(pydantic.BaseModel):
+    """Submitted application or AGY license access request record."""
+
+    request_id: str
+    user_email: str
+    request_type: str
+    target_id: str
+    target_name: str
+    requested_group: str = ""
+    justification: str = ""
+    status: str = "PENDING_APPROVAL"
+    created_at: str
+
+
 class SuggestedUser(pydantic.BaseModel):
     """Represents a quick-select Workspace user account for sign-in."""
 

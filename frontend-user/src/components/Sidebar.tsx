@@ -1,11 +1,12 @@
 /**
  * User Portal Docked Left Navigation Sidebar (Google Cloud Console Style).
- * Displays GE App Hub and conditionally displays AntiGravity Hub when the user
- * holds a 'standard' or 'plus' Gemini Enterprise license.
+ * Displays GE App Hub, conditionally displays AGY Hub when the user
+ * holds a 'standard' or 'plus' Gemini Enterprise license, and displays Request Access.
  */
 
 import React, { useState } from 'react';
 import {
+  KeyRound,
   LayoutGrid,
   PanelLeftClose,
   PanelLeftOpen,
@@ -76,6 +77,12 @@ export function Sidebar({
           },
         ]
       : []),
+    {
+      id: 'request-access',
+      label: 'Request Access',
+      description: 'Apps & AGY License',
+      icon: <KeyRound className="h-4 w-4 shrink-0" aria-hidden="true" />,
+    },
   ];
 
   return (

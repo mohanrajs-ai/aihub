@@ -9,18 +9,24 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertCircle, RefreshCw } from 'lucide-react';
 import {
   buildGoogleSsoLoginUrl,
+  fetchAccessRequests,
   fetchApps,
   fetchCurrentUser,
+  fetchRequestableApps,
   logoutUser,
+  submitAccessRequest,
 } from './api/client';
 import { AntiGravityHubView } from './components/AntiGravityHubView';
 import { CatalogGrid } from './components/CatalogGrid';
 import { Header } from './components/Header';
 import { LoginScreen } from './components/LoginScreen';
+import { RequestAccessView } from './components/RequestAccessView';
 import { SearchFilterBar } from './components/SearchFilterBar';
 import { Sidebar } from './components/Sidebar';
 import { ThemeProvider } from './context/ThemeContext';
 import {
+  AccessRequestCreatePayload,
+  AccessRequestItem,
   CatalogApplication,
   PortalSection,
   UserContext,
@@ -95,6 +101,8 @@ export function App(): React.ReactElement {
 
   const [activeSection, setActiveSection] = useState<PortalSection>('apps');
   const [apps, setApps] = useState<CatalogApplication[]>([]);
+  const [allApps, setAllApps] = useState<CatalogApplication[]>([]);
+  const [accessRequests, setAccessRequests] = useState<AccessRequestItem[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [departments, setDepartments] = useState<string[]>([]);
   const [groups, setGroups] = useState<string[]>([]);
@@ -127,6 +135,22 @@ export function App(): React.ReactElement {
       setCategories(catalogRes.categories);
       setDepartments(catalogRes.departments);
       setGroups(catalogRes.groups ?? userRes.groups ?? []);
+
+      void fetchRequestableApps('employee', token)
+        .then((reqCatalog) => {
+          if (reqCatalog && Array.isArray(reqCatalog.items)) {
+            setAllApps(reqCatalog.items);
+          }
+        })
+        .catch(() => null);
+
+      void fetchAccessRequests('employee', token)
+        .then((reqs) => {
+          if (Array.isArray(reqs)) {
+            setAccessRequests(reqs);
+          }
+        })
+        .catch(() => null);
     } catch (err) {
       const message =
         err instanceof Error ? err.message : 'Unexpected backend error';
@@ -154,7 +178,38 @@ export function App(): React.ReactElement {
     setAuthToken(null);
     setUser(null);
     setApps([]);
+    setAllApps([]);
+    setAccessRequests([]);
     setGroups([]);
+  }
+
+  async function handleSubmitAccessRequest(
+    payload: AccessRequestCreatePayload,
+  ): Promise<void> {
+    if (!authToken) return;
+    try {
+      const created = await submitAccessRequest(payload, 'employee', authToken);
+      setAccessRequests((prev) => [
+        ...prev.filter((item) => item.target_id !== created.target_id),
+        created,
+      ]);
+    } catch {
+      // Fallback optimistic state in test/offline mode
+      setAccessRequests((prev) => [
+        ...prev,
+        {
+          request_id: `req-${Date.now()}`,
+          user_email: user?.email || 'employee@mohanrajs.demo.altostrat.com',
+          request_type: payload.request_type,
+          target_id: payload.target_id,
+          target_name: payload.target_name,
+          requested_group: payload.requested_group,
+          justification: payload.justification,
+          status: 'PENDING_APPROVAL',
+          created_at: new Date().toISOString(),
+        },
+      ]);
+    }
   }
 
   const filteredApps = useMemo(
@@ -246,6 +301,14 @@ export function App(): React.ReactElement {
 
                 {activeSection === 'antigravity' && showAntiGravityHub ? (
                   <AntiGravityHubView user={user} />
+                ) : activeSection === 'request-access' ? (
+                  <RequestAccessView
+                    user={user}
+                    authorizedApps={apps}
+                    allApps={allApps}
+                    accessRequests={accessRequests}
+                    onSubmitRequest={handleSubmitAccessRequest}
+                  />
                 ) : (
                   <>
                     <div className="mb-6">

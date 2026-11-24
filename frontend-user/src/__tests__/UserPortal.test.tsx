@@ -48,6 +48,43 @@ describe('Standalone User Portal Codebase', () => {
       departments: ['Organization-Wide'],
       groups: ['hr-app-users@mohanrajs.demo.altostrat.com'],
     });
+    vi.spyOn(apiClient, 'fetchRequestableApps').mockResolvedValue({
+      items: [
+        ...SAMPLE_APPS,
+        {
+          engine_id: 'cymbal-finance-app',
+          display_name: 'Cymbal Finance Assistant',
+          description: 'Restricted finance app',
+          category: 'Finance',
+          department: 'Finance',
+          tags: ['finance'],
+          icon_name: 'BarChart3',
+          launch_url: 'https://vertexaisearch.cloud.google.com/home/cid/cymbal-finance-app',
+          location: 'global',
+          solution_type: 'SOLUTION_TYPE_SEARCH',
+          allowed_roles: ['group:ge-finance-users@mohanrajs.demo.altostrat.com'],
+          featured: false,
+        },
+      ],
+      total: 2,
+      categories: ['Productivity', 'Finance'],
+      departments: ['Organization-Wide', 'Finance'],
+      groups: ['ge-finance-users@mohanrajs.demo.altostrat.com'],
+    });
+    vi.spyOn(apiClient, 'fetchAccessRequests').mockResolvedValue([]);
+    vi.spyOn(apiClient, 'submitAccessRequest').mockImplementation(
+      async (payload) => ({
+        request_id: 'req-123',
+        user_email: 'employee@mohanrajs.demo.altostrat.com',
+        request_type: payload.request_type,
+        target_id: payload.target_id,
+        target_name: payload.target_name,
+        requested_group: payload.requested_group || '',
+        justification: payload.justification || '',
+        status: 'PENDING_APPROVAL',
+        created_at: '2026-11-24T21:55:00Z',
+      }),
+    );
   });
 
   it('shows no user list on the login screen and redirects to Google login with the entered email', () => {
@@ -140,6 +177,21 @@ describe('Standalone User Portal Codebase', () => {
     expect(
       await screen.findByText('Quick Start: Antigravity App (Desktop 2.0)'),
     ).toBeInTheDocument();
+
+    // Navigate to Request Access tab and verify App & AGY License requests
+    fireEvent.click(screen.getByLabelText('Request Access'));
+    expect(await screen.findByText('Request AGY License')).toBeInTheDocument();
+    expect(
+      screen.getByText('Request Application Access'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('Cymbal Finance Assistant'),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByLabelText('Request Access to Cymbal Finance Assistant'),
+    );
+    expect(await screen.findByText('Access Requested')).toBeInTheDocument();
   });
 
   it('hides AGY Hub tab when user license is none', async () => {

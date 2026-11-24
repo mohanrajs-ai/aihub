@@ -3,6 +3,8 @@
  */
 
 import {
+  AccessRequestCreatePayload,
+  AccessRequestItem,
   AgentSummary,
   AppsQueryParams,
   AuthConfigResponse,
@@ -157,6 +159,65 @@ export async function fetchApps(
     );
   }
   const data: CatalogResponse = await response.json();
+  return data;
+}
+
+/**
+ * Fetches all enterprise GE applications so users can view and request access.
+ */
+export async function fetchRequestableApps(
+  devRole?: string,
+  authToken?: string,
+): Promise<CatalogResponse> {
+  const response = await fetch('/api/v1/apps/requestable', {
+    headers: buildHeaders(devRole, authToken),
+  });
+  if (!response.ok) {
+    throw new Error(
+      `Failed to fetch requestable catalog: HTTP ${response.status}`,
+    );
+  }
+  const data: CatalogResponse = await response.json();
+  return data;
+}
+
+/**
+ * Fetches submitted application and AGY license access requests for the user.
+ */
+export async function fetchAccessRequests(
+  devRole?: string,
+  authToken?: string,
+): Promise<AccessRequestItem[]> {
+  const response = await fetch('/api/v1/apps/access-requests', {
+    headers: buildHeaders(devRole, authToken),
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to fetch access requests: HTTP ${response.status}`);
+  }
+  const data: AccessRequestItem[] = await response.json();
+  return data;
+}
+
+/**
+ * Submits a request for GE Application access or an AGY License.
+ */
+export async function submitAccessRequest(
+  payload: AccessRequestCreatePayload,
+  devRole?: string,
+  authToken?: string,
+): Promise<AccessRequestItem> {
+  const response = await fetch('/api/v1/apps/access-requests', {
+    method: 'POST',
+    headers: {
+      ...buildHeaders(devRole, authToken),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to submit access request: HTTP ${response.status}`);
+  }
+  const data: AccessRequestItem = await response.json();
   return data;
 }
 

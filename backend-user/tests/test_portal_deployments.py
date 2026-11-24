@@ -56,6 +56,21 @@ def test_user_backend_serves_only_app_catalog_and_auth_routes() -> None:
     assert me_plus.status_code == 200
     assert me_plus.json()["license_type"] == "plus"
 
+    req_apps = client.get("/api/v1/apps/requestable")
+    assert req_apps.status_code == 200
+    assert req_apps.json()["total"] >= 1
+
+    create_req = client.post(
+        "/api/v1/apps/access-requests",
+        json={
+            "request_type": "AGY_LICENSE",
+            "target_id": "agy-plus",
+            "target_name": "Gemini Enterprise Plus (AGY)",
+        },
+    )
+    assert create_req.status_code == 201
+    assert create_req.json()["status"] == "PENDING_APPROVAL"
+
     # Skills, Agents, Connectors/MCP, and Admin routes are omitted from backend-user
     assert client.get("/api/v1/skills").status_code == 404
     assert client.get("/api/v1/agents").status_code == 404

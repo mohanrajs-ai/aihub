@@ -76,11 +76,32 @@ export interface SyncRunSummary {
 export type PortalSection =
   | 'apps'
   | 'antigravity'
+  | 'request-access'
   | 'skills'
   | 'agents'
   | 'mcp'
   | 'skill-governance'
   | 'provisioning';
+
+export interface AccessRequestCreatePayload {
+  request_type: 'APP_ACCESS' | 'AGY_LICENSE';
+  target_id: string;
+  target_name: string;
+  requested_group?: string;
+  justification?: string;
+}
+
+export interface AccessRequestItem {
+  request_id: string;
+  user_email: string;
+  request_type: 'APP_ACCESS' | 'AGY_LICENSE' | string;
+  target_id: string;
+  target_name: string;
+  requested_group?: string;
+  justification?: string;
+  status: string;
+  created_at: string;
+}
 
 export interface AgentSummary {
   agent_id: string;

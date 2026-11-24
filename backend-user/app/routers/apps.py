@@ -1,5 +1,8 @@
 """FastAPI router for Gemini Enterprise application catalog endpoints."""
 
+import datetime
+import uuid
+
 import fastapi
 from sqlalchemy import orm
 
@@ -12,6 +15,8 @@ from app.services import discovery
 from app.services import firestore as firestore_service
 
 router = fastapi.APIRouter(prefix="/api/v1/apps", tags=["catalog"])
+
+_ACCESS_REQUESTS_STORE: list[models.AccessRequestItem] = []
 
 
 def get_catalog_service(
@@ -89,3 +94,81 @@ def list_apps(
         departments=departments,
         groups=sorted(groups),
     )
+
+
+@router.get("/requestable", response_model=models.CatalogResponse)
+def list_requestable_apps(
+    _user: models.UserContext = fastapi.Depends(auth.resolve_current_user),
+    catalog_service: catalog.CatalogService = fastapi.Depends(
+        get_catalog_service
+    ),
+) -> models.CatalogResponse:
+    """Returns all enterprise GE applications so users can request access."""
+    all_apps = catalog_service.list_visible_applications(
+        user_roles=["admin"],
+        user_email="admin@mohanrajs.demo.altostrat.com",
+    )
+    categories = sorted({item.category for item in all_apps})
+    departments = sorted({item.department for item in all_apps})
+    groups: set[str] = set()
+    for item in all_apps:
+        for role in item.allowed_roles:
+            if role.startswith("group:"):
+                groups.add(role.split(":", 1)[1].strip().lower())
+    return models.CatalogResponse(
+        items=all_apps,
+        total=len(all_apps),
+        categories=categories,
+        departments=departments,
+        groups=sorted(groups),
+    )
+
+
+@router.get(
+    "/access-requests",
+    response_model=list[models.AccessRequestItem],
+)
+def list_access_requests(
+    user: models.UserContext = fastapi.Depends(auth.resolve_current_user),
+) -> list[models.AccessRequestItem]:
+    """Lists submitted app and AGY license access requests for the user."""
+    clean_email = (user.email or "").strip().lower()
+    return [
+        req
+        for req in _ACCESS_REQUESTS_STORE
+        if req.user_email.lower() == clean_email
+    ]
+
+
+@router.post(
+    "/access-requests",
+    response_model=models.AccessRequestItem,
+    status_code=201,
+)
+def create_access_request(
+    payload: models.AccessRequestCreate,
+    user: models.UserContext = fastapi.Depends(auth.resolve_current_user),
+) -> models.AccessRequestItem:
+    """Submits a request for GE Application access or an AGY License."""
+    clean_email = (user.email or "employee@enterprise.example.com").strip().lower()
+    for existing in _ACCESS_REQUESTS_STORE:
+        if (
+            existing.user_email.lower() == clean_email
+            and existing.request_type == payload.request_type
+            and existing.target_id == payload.target_id
+        ):
+            return existing
+
+    item = models.AccessRequestItem(
+        request_id=f"req-{uuid.uuid4().hex[:8]}",
+        user_email=clean_email,
+        request_type=payload.request_type,
+        target_id=payload.target_id,
+        target_name=payload.target_name,
+        requested_group=payload.requested_group,
+        justification=payload.justification,
+        status="PENDING_APPROVAL",
+        created_at=datetime.datetime.now(datetime.timezone.utc).isoformat(),
+    )
+    _ACCESS_REQUESTS_STORE.append(item)
+    return item
