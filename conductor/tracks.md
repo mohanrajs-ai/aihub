@@ -22,6 +22,6 @@
 
 ---
 
-- [ ] **Track: Separate User Portal and Admin Console Systems**
+- [~] **Track: Separate User Portal and Admin Console Systems**
   *Link: [./tracks/separate_user_admin_portals_20261123/index.md](./tracks/separate_user_admin_portals_20261123/index.md)*
 
