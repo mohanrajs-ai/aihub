@@ -125,8 +125,62 @@ describe('Standalone User Portal Codebase', () => {
       items: [],
       total: 0,
     });
-    vi.spyOn(apiClient, 'fetchAgents').mockResolvedValue([]);
-    vi.spyOn(apiClient, 'fetchMcpServers').mockResolvedValue([]);
+    vi.spyOn(apiClient, 'fetchAgents').mockResolvedValue([
+      {
+        agent_id: 'universal-skill-orchestrator',
+        display_name: 'Universal Skill Orchestrator',
+        resource_name: 'projects/p/locations/us-central1/reasoningEngines/101',
+        description: 'Executes composite skills.',
+        deployment_target: 'agent_runtime',
+        pinned_apps: ['ge-enterprise-search'],
+        shared_skills: ['daily-brief'],
+        starter_prompts: ['Run daily brief'],
+        status: 'ACTIVE',
+        subskills_count: 5,
+        version: '1.0.0',
+      },
+      {
+        agent_id: 'unauthorized-agent',
+        display_name: 'Unauthorized Agent',
+        resource_name: 'projects/p/locations/us-central1/reasoningEngines/999',
+        description: 'Hidden from user',
+        deployment_target: 'agent_runtime',
+        pinned_apps: ['unauthorized-app'],
+        shared_skills: [],
+        starter_prompts: [],
+        status: 'ACTIVE',
+        subskills_count: 1,
+        version: '1.0.0',
+      },
+    ]);
+    vi.spyOn(apiClient, 'fetchMcpServers').mockResolvedValue([
+      {
+        server_id: 'cymbal-jira',
+        display_name: 'Atlassian Jira Connector',
+        data_source: 'JIRA',
+        endpoint_uri: 'https://cymbal.atlassian.net',
+        connector_modes: ['FEDERATED', 'ACTIONS'],
+        entities: ['issue'],
+        enabled_actions: ['create_issue'],
+        tools_count: 4,
+        status: 'ACTIVE',
+        action_state: 'ENABLED',
+        attached_apps: ['ge-enterprise-search'],
+      },
+      {
+        server_id: 'unauthorized-mcp',
+        display_name: 'Unauthorized MCP',
+        data_source: 'SECRET',
+        endpoint_uri: 'https://secret.example.com',
+        connector_modes: ['FEDERATED'],
+        entities: [],
+        enabled_actions: [],
+        tools_count: 1,
+        status: 'ACTIVE',
+        action_state: 'ENABLED',
+        attached_apps: ['unauthorized-app'],
+      },
+    ]);
   });
 
   it('shows no user list on the login screen and redirects to Google login with the entered email', () => {
@@ -227,5 +281,17 @@ describe('Standalone User Portal Codebase', () => {
     expect(
       screen.queryByText('unauthorized-app:secret-skill'),
     ).not.toBeInTheDocument();
+
+    // Navigate to Agent Registry and verify authorized app filter & columns
+    fireEvent.click(screen.getByLabelText('Agent Registry'));
+    expect(await screen.findByText('Agent ID')).toBeInTheDocument();
+    expect(screen.getByText('universal-skill-orchestrator')).toBeInTheDocument();
+    expect(screen.queryByText('unauthorized-agent')).not.toBeInTheDocument();
+
+    // Navigate to Connector/MCP and verify authorized app filter & columns
+    fireEvent.click(screen.getByLabelText('Connector/MCP'));
+    expect(await screen.findByText('Connector ID')).toBeInTheDocument();
+    expect(screen.getByText('cymbal-jira')).toBeInTheDocument();
+    expect(screen.queryByText('unauthorized-mcp')).not.toBeInTheDocument();
   });
 });

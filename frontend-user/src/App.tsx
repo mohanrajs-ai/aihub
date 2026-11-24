@@ -356,11 +356,19 @@ export function App(): React.ReactElement {
                 )}
 
                 {activeSection === 'agents' && (
-                  <AgentsView agents={agents} loading={loading} />
+                  <AgentsView
+                    agents={agents}
+                    userApps={apps}
+                    loading={loading}
+                  />
                 )}
 
                 {activeSection === 'mcp' && (
-                  <McpServersView servers={mcpServers} loading={loading} />
+                  <McpServersView
+                    servers={mcpServers}
+                    userApps={apps}
+                    loading={loading}
+                  />
                 )}
               </div>
             </main>
