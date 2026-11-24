@@ -117,6 +117,20 @@ describe('Standalone User Portal Codebase', () => {
     expect(screen.getByText('Agent Registry')).toBeInTheDocument();
     expect(screen.getByText('Connector/MCP')).toBeInTheDocument();
 
+    // Verify application table columns: APP ID, APP Name, Group, Location, URL
+    expect(screen.getByText('APP ID')).toBeInTheDocument();
+    expect(screen.getByText('APP Name')).toBeInTheDocument();
+    expect(screen.getByText('Group')).toBeInTheDocument();
+    expect(screen.getByText('Location')).toBeInTheDocument();
+    expect(screen.getByText('URL')).toBeInTheDocument();
+    expect(screen.getByText('ge-enterprise-search')).toBeInTheDocument();
+    expect(
+      screen.getByText('https://vertexaisearch.cloud.google.com/home'),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText('Category & Department'),
+    ).not.toBeInTheDocument();
+
     // Verify zero administrative presence and no persona simulator in user menu
     expect(screen.queryByText('Skill Governance')).not.toBeInTheDocument();
     expect(screen.queryByText('Infra Provisioning')).not.toBeInTheDocument();

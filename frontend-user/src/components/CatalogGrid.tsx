@@ -1,6 +1,7 @@
 /**
- * Responsive application catalog supporting both Card View (current grid view)
- * and Google Cloud Console List View (table view).
+ * Responsive application catalog supporting both Card View and
+ * Google Cloud Console List View (table view).
+ * Displays strictly: APP ID (engine_id), APP Name, Group, Location, and URL.
  */
 
 import React from 'react';
@@ -41,12 +42,11 @@ export function CatalogGrid({
         {[1, 2, 3, 4, 5, 6].map((item) => (
           <div
             key={item}
-            className="h-64 animate-pulse rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900"
+            className="h-48 animate-pulse rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900"
           >
-            <div className="h-11 w-11 rounded-xl bg-slate-200 dark:bg-slate-800" />
+            <div className="h-10 w-10 rounded-xl bg-slate-200 dark:bg-slate-800" />
             <div className="mt-4 h-5 w-3/4 rounded bg-slate-200 dark:bg-slate-800" />
             <div className="mt-3 h-3 w-full rounded bg-slate-100 dark:bg-slate-800/70" />
-            <div className="mt-2 h-3 w-5/6 rounded bg-slate-100 dark:bg-slate-800/70" />
           </div>
         ))}
       </div>
@@ -64,7 +64,7 @@ export function CatalogGrid({
         </h3>
         <p className="mt-1 max-w-md text-sm text-slate-500 dark:text-slate-400">
           No Gemini Enterprise applications matched your current search or
-          category filters. Try broadening your query or resetting filters.
+          filters. Try broadening your query or resetting filters.
         </p>
         <button
           type="button"
@@ -85,12 +85,11 @@ export function CatalogGrid({
           <table className="min-w-full divide-y divide-slate-200 text-left text-xs dark:divide-slate-800">
             <thead className="bg-slate-50 font-semibold uppercase tracking-wider text-slate-500 dark:bg-slate-800/60 dark:text-slate-400">
               <tr>
-                <th className="px-4 py-3">Application</th>
-                <th className="px-4 py-3">Engine ID</th>
-                <th className="px-4 py-3">Category & Department</th>
-                <th className="px-4 py-3">Authorized Group</th>
+                <th className="px-4 py-3">APP ID</th>
+                <th className="px-4 py-3">APP Name</th>
+                <th className="px-4 py-3">Group</th>
                 <th className="px-4 py-3">Location</th>
-                <th className="px-4 py-3 text-right">Action</th>
+                <th className="px-4 py-3">URL</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
@@ -103,38 +102,18 @@ export function CatalogGrid({
                     key={app.engine_id}
                     className="transition hover:bg-slate-50/80 dark:hover:bg-slate-800/40"
                   >
-                    <td className="px-4 py-3.5">
-                      <div className="flex items-start gap-3">
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400">
-                          <Sparkles className="h-4 w-4" aria-hidden="true" />
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-slate-900 dark:text-white">
-                              {app.display_name}
-                            </span>
-                            {app.featured && (
-                              <span className="rounded-full bg-blue-600 px-2 py-0.5 text-[10px] font-semibold text-white">
-                                Featured
-                              </span>
-                            )}
-                          </div>
-                          <p className="mt-0.5 line-clamp-1 max-w-md text-[11px] text-slate-500 dark:text-slate-400">
-                            {app.description}
-                          </p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3.5 font-mono font-medium text-slate-700 dark:text-slate-300">
+                    <td className="px-4 py-3.5 font-mono font-semibold text-slate-800 dark:text-slate-200">
                       {app.engine_id}
                     </td>
                     <td className="px-4 py-3.5">
-                      <span className="rounded bg-slate-100 px-2 py-0.5 font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                        {app.category}
-                      </span>
-                      <span className="ml-1.5 text-slate-500 dark:text-slate-400">
-                        • {app.department}
-                      </span>
+                      <div className="flex items-center gap-2.5">
+                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400">
+                          <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+                        </div>
+                        <span className="font-bold text-slate-900 dark:text-white">
+                          {app.display_name}
+                        </span>
+                      </div>
                     </td>
                     <td className="px-4 py-3.5 font-mono text-[11px] text-indigo-700 dark:text-indigo-300">
                       {groups.length > 0 ? groups.join(', ') : 'All Authorized'}
@@ -145,15 +124,17 @@ export function CatalogGrid({
                         {app.location}
                       </span>
                     </td>
-                    <td className="px-4 py-3.5 text-right">
+                    <td className="px-4 py-3.5">
                       <button
                         type="button"
                         onClick={() => launchAppPopup(app)}
                         aria-label={`Launch App ${app.display_name}`}
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white shadow-2xs transition hover:bg-blue-700"
+                        className="inline-flex items-center gap-1.5 font-mono text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline dark:text-blue-400 dark:hover:text-blue-300"
                       >
-                        <span>Launch App</span>
-                        <ExternalLink className="h-3 w-3" aria-hidden="true" />
+                        <span className="max-w-xs truncate sm:max-w-md">
+                          {app.launch_url}
+                        </span>
+                        <ExternalLink className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                       </button>
                     </td>
                   </tr>
