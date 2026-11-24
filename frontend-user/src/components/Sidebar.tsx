@@ -65,8 +65,8 @@ export function Sidebar({
       ? [
           {
             id: 'antigravity' as PortalSection,
-            label: 'AntiGravity Hub',
-            description: 'Antigravity on VS Code',
+            label: 'AGY Hub',
+            description: 'VS Code • CLI • App',
             icon: <Rocket className="h-4 w-4 shrink-0" aria-hidden="true" />,
             badge: (
               <span className="rounded-full bg-indigo-100 px-2 py-0.5 font-mono text-[10px] font-bold uppercase text-indigo-700 dark:bg-indigo-950/80 dark:text-indigo-300">

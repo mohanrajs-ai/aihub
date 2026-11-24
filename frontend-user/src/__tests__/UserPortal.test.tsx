@@ -89,7 +89,7 @@ describe('Standalone User Portal Codebase', () => {
     );
   });
 
-  it('shows AntiGravity Hub tab for Standard/Plus users and renders the VS Code guide', async () => {
+  it('shows AGY Hub tab for Standard/Plus users with Antigravity on VS Code, Antigravity CLI, and Antigravity App options', async () => {
     window.sessionStorage.setItem('ge_user_auth_token', 'test-user-session');
     render(<App />);
 
@@ -110,32 +110,39 @@ describe('Standalone User Portal Codebase', () => {
     expect(screen.queryByText('Connector/MCP')).not.toBeInTheDocument();
     expect(screen.queryByText('Skill Governance')).not.toBeInTheDocument();
 
-    // AntiGravity Hub tab is visible for Standard/Plus license
-    const agyTab = screen.getByLabelText('AntiGravity Hub');
+    // AGY Hub tab is visible for Standard/Plus license
+    const agyTab = screen.getByLabelText('AGY Hub');
     expect(agyTab).toBeInTheDocument();
     fireEvent.click(agyTab);
 
+    // Option 1 (default): Antigravity on VS Code
     expect(
       await screen.findByText('Quick Start: Setting Up Antigravity on VS Code'),
     ).toBeInTheDocument();
     expect(
-      screen.getByText('Install Google Antigravity Extension in VS Code'),
+      screen.getByRole('tab', { name: 'Antigravity on VS Code' }),
     ).toBeInTheDocument();
     expect(
-      screen.queryByText('code --install-extension google.antigravity'),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.getByText('1. Antigravity Tab (Autocomplete)'),
+      screen.getByRole('tab', { name: 'Antigravity CLI' }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText('2. Inline Command (Targeted Edit)'),
+      screen.getByRole('tab', { name: 'Antigravity App' }),
     ).toBeInTheDocument();
+
+    // Switch to Option 2: Antigravity CLI
+    fireEvent.click(screen.getByRole('tab', { name: 'Antigravity CLI' }));
     expect(
-      screen.getByText('3. Sidebar Chat & Agent Mode'),
+      await screen.findByText('Quick Start: Antigravity CLI (agy)'),
+    ).toBeInTheDocument();
+
+    // Switch to Option 3: Antigravity App
+    fireEvent.click(screen.getByRole('tab', { name: 'Antigravity App' }));
+    expect(
+      await screen.findByText('Quick Start: Antigravity App (Desktop 2.0)'),
     ).toBeInTheDocument();
   });
 
-  it('hides AntiGravity Hub tab when user license is none', async () => {
+  it('hides AGY Hub tab when user license is none', async () => {
     vi.spyOn(apiClient, 'fetchCurrentUser').mockResolvedValue({
       email: 'guest@mohanrajs.demo.altostrat.com',
       user_id: 'guest-001',
@@ -148,6 +155,6 @@ describe('Standalone User Portal Codebase', () => {
     render(<App />);
 
     await screen.findAllByText('GE App Hub');
-    expect(screen.queryByLabelText('AntiGravity Hub')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('AGY Hub')).not.toBeInTheDocument();
   });
 });
