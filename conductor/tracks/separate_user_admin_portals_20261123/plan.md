@@ -26,19 +26,19 @@
   - [x] Implement unauthorized access guard with return button if non-admin accesses Admin Console [cca6527]
 - [x] Task: Phase 2 Verification & Checkpoint (Refer to workflow.md) [cca6527]
 
-## Phase 3: Header Portal Switcher & App Router Integration
-- [ ] Task: Write unit tests for Header portal switcher and route management in `App.tsx`
-  - [ ] Test that portal toggle appears only for admin roles
-  - [ ] Test switching between User and Admin systems retains auth state and theme
-  - [ ] Test URL path synchronization (`/` vs `/admin`)
-- [ ] Task: Update `Header.tsx` with Portal Switcher
-  - [ ] Add interactive tab/pill toggle: "User Portal" | "Admin Console" for authorized admin users
-  - [ ] Display administrative badge when currently inside Admin Console
-- [ ] Task: Refactor `App.tsx` into top-level System Router
-  - [ ] Manage active system state (`user-portal` vs `admin-console`) based on URL and user selection
-  - [ ] Render `UserPortal` or `AdminConsole` accordingly
-  - [ ] Maintain global auth, theme, and project context across both systems
-- [ ] Task: Phase 3 Verification & Checkpoint (Refer to workflow.md)
+## Phase 3: Header Portal Switcher & App Router Integration [checkpoint: fafb3ae]
+- [x] Task: Write unit tests for Header portal switcher and route management in `App.tsx` [fafb3ae]
+  - [x] Test that portal toggle appears only for admin roles [fafb3ae]
+  - [x] Test switching between User and Admin systems retains auth state and theme [fafb3ae]
+  - [x] Test URL path synchronization (`/` vs `/admin`) [fafb3ae]
+- [x] Task: Update `Header.tsx` with Portal Switcher [fafb3ae]
+  - [x] Add interactive tab/pill toggle: "User Portal" | "Admin Console" for authorized admin users [fafb3ae]
+  - [x] Display administrative badge when currently inside Admin Console [fafb3ae]
+- [x] Task: Refactor `App.tsx` into top-level System Router [fafb3ae]
+  - [x] Manage active system state (`user-portal` vs `admin-console`) based on URL and user selection [fafb3ae]
+  - [x] Render `UserPortal` or `AdminConsole` accordingly [fafb3ae]
+  - [x] Maintain global auth, theme, and project context across both systems [fafb3ae]
+- [x] Task: Phase 3 Verification & Checkpoint (Refer to workflow.md) [fafb3ae]
 
 ## Phase 4: Full System Verification, Regressions & Conductor Registry
 - [ ] Task: Run full frontend test suite (`npm test -- --run`) and production build (`npm run build`)
