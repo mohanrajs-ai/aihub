@@ -13,6 +13,10 @@ htmlcov/
 node_modules/
 frontend/dist/
 frontend/coverage/
+frontend-user/dist/
+frontend-user/coverage/
+frontend-admin/dist/
+frontend-admin/coverage/
 *.tsbuildinfo
 *.log
 

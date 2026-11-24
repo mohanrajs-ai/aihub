@@ -26,9 +26,10 @@ from app.routers import sync as sync_router
 from app.services import sync as sync_service
 from skill_workflow_service import router as workflow_router
 
-DEFAULT_FRONTEND_DIST = (
-    pathlib.Path(__file__).resolve().parents[2] / "frontend" / "dist"
-)
+REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
+DEFAULT_FRONTEND_DIST = REPO_ROOT / "frontend" / "dist"
+DEFAULT_USER_FRONTEND_DIST = REPO_ROOT / "frontend-user" / "dist"
+DEFAULT_ADMIN_FRONTEND_DIST = REPO_ROOT / "frontend-admin" / "dist"
 
 
 @contextlib.asynccontextmanager
@@ -63,19 +64,34 @@ async def _app_lifespan(
                 await worker_task
 
 
+def _resolve_default_dist(portal_mode: str) -> pathlib.Path:
+    """Resolves the default compiled SPA directory for the given portal mode."""
+    if portal_mode == "user":
+        return DEFAULT_USER_FRONTEND_DIST
+    if portal_mode == "admin":
+        return DEFAULT_ADMIN_FRONTEND_DIST
+    return DEFAULT_FRONTEND_DIST
+
+
 def create_app(
     static_dir: pathlib.Path | None = None,
+    portal_mode: str = "all",
 ) -> fastapi.FastAPI:
     """Creates and configures the FastAPI application instance.
 
     Args:
         static_dir: Optional directory containing compiled SPA static files.
+        portal_mode: Target deployment mode ('all', 'user', or 'admin').
 
     Returns:
         Configured FastAPI application.
     """
+    title_map = {
+        "user": "Gemini Enterprise AppHub — User Portal API",
+        "admin": "Gemini Enterprise AppHub — Admin Console API",
+    }
     application = fastapi.FastAPI(
-        title="Gemini Enterprise AppHub API",
+        title=title_map.get(portal_mode, "Gemini Enterprise AppHub API"),
         description=(
             "Centralized hub and marketplace API for discovering and "
             "accessing Gemini Enterprise applications."
@@ -100,6 +116,7 @@ def create_app(
         return {
             "status": "ok",
             "service": "ge-apphub-backend",
+            "portal_mode": portal_mode,
             "mode": mode,
             "gcp_project_id": settings.gcp_project_id,
         }
@@ -120,12 +137,13 @@ def create_app(
     application.include_router(groups_router.router)
     application.include_router(agents_router.router)
     application.include_router(mcp_router.router)
-    application.include_router(provisioning_router.router)
     application.include_router(skills_router.router)
     application.include_router(workflow_router.router)
-    application.include_router(sync_router.router)
+    if portal_mode in ("all", "admin"):
+        application.include_router(provisioning_router.router)
+        application.include_router(sync_router.router)
 
-    resolved_dist = static_dir or DEFAULT_FRONTEND_DIST
+    resolved_dist = static_dir or _resolve_default_dist(portal_mode)
     index_html = resolved_dist / "index.html"
     assets_dir = resolved_dist / "assets"
     if assets_dir.is_dir():

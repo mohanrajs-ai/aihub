@@ -7,11 +7,8 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Database,
-  Lock,
   RefreshCw,
   ShieldAlert,
-  Users,
 } from 'lucide-react';
 import {
   approveProvisioningJob,

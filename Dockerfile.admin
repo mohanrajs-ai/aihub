@@ -1,0 +1,27 @@
+# Stage 1: Build Standalone Admin Console React + TypeScript Frontend
+FROM node:20-slim AS frontend-admin-builder
+WORKDIR /workspace/frontend-admin
+COPY frontend-admin/package*.json ./
+RUN npm ci
+COPY frontend-admin/ ./
+RUN npm run build
+
+# Stage 2: Python FastAPI Admin Console Runtime (Port 8082)
+FROM python:3.12-slim AS runtime
+WORKDIR /workspace
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/workspace/backend \
+    PORT=8082
+
+COPY backend/requirements.txt ./backend/requirements.txt
+RUN pip install --no-cache-dir -r backend/requirements.txt
+
+COPY backend/ ./backend/
+COPY --from=frontend-admin-builder /workspace/frontend-admin/dist ./frontend-admin/dist
+
+RUN useradd --create-home --shell /bin/bash appuser && chown -R appuser:appuser /workspace
+USER appuser
+
+EXPOSE 8082
+CMD ["uvicorn", "app.admin_main:app", "--host", "0.0.0.0", "--port", "8082"]

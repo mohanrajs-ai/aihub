@@ -17,5 +17,39 @@ services:
       timeout: 5s
       retries: 5
 
+  user-portal:
+    build:
+      context: .
+      dockerfile: Dockerfile.user
+    container_name: geapphub-user-portal
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-geapphub}
+      GCP_PROJECT_ID: ${GCP_PROJECT_ID:-cymbal-app-514110}
+      USE_MOCK_DATA: ${USE_MOCK_DATA:-false}
+      SYNC_ENABLED: "false"
+    ports:
+      - "${USER_PORTAL_PORT:-8080}:8080"
+
+  admin-console:
+    build:
+      context: .
+      dockerfile: Dockerfile.admin
+    container_name: geapphub-admin-console
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-geapphub}
+      GCP_PROJECT_ID: ${GCP_PROJECT_ID:-cymbal-app-514110}
+      USE_MOCK_DATA: ${USE_MOCK_DATA:-false}
+      SYNC_ENABLED: ${SYNC_ENABLED:-true}
+    ports:
+      - "${ADMIN_CONSOLE_PORT:-8082}:8082"
+
 volumes:
   geapphub_pgdata:

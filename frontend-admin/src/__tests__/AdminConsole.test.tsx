@@ -23,8 +23,14 @@ describe('Standalone Admin Console Codebase', () => {
     vi.spyOn(apiClient, 'fetchSkills').mockResolvedValue({
       items: [],
       total: 0,
+      pending_review_count: 0,
+      approved_count: 0,
+      draft_count: 0,
     });
-    vi.spyOn(apiClient, 'fetchRegistrySkills').mockResolvedValue([]);
+    vi.spyOn(apiClient, 'fetchRegistrySkills').mockResolvedValue({
+      items: [],
+      total: 0,
+    });
     vi.spyOn(apiClient, 'fetchWorkflowNotifications').mockResolvedValue({
       items: [],
       total: 0,
@@ -35,8 +41,13 @@ describe('Standalone Admin Console Codebase', () => {
       active_workspace_locks: [],
     });
     vi.spyOn(apiClient, 'fetchSyncStatus').mockResolvedValue({
+      sync_enabled: true,
+      sync_interval_seconds: 900,
+      database_dialect: 'sqlite',
       total_apps: 6,
       total_groups: 2,
+      total_users: 5,
+      total_memberships: 5,
       last_run: {
         id: 1,
         trigger_source: 'startup',

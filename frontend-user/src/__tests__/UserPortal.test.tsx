@@ -48,8 +48,14 @@ describe('Standalone User Portal Codebase', () => {
     vi.spyOn(apiClient, 'fetchSkills').mockResolvedValue({
       items: [],
       total: 0,
+      pending_review_count: 0,
+      approved_count: 0,
+      draft_count: 0,
     });
-    vi.spyOn(apiClient, 'fetchRegistrySkills').mockResolvedValue([]);
+    vi.spyOn(apiClient, 'fetchRegistrySkills').mockResolvedValue({
+      items: [],
+      total: 0,
+    });
     vi.spyOn(apiClient, 'fetchAgents').mockResolvedValue([]);
     vi.spyOn(apiClient, 'fetchMcpServers').mockResolvedValue([]);
   });

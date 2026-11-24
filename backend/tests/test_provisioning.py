@@ -268,25 +268,23 @@ def test_gedeploy_cli_per_step_and_full_onboard(
     import pathlib
     import sys
 
-    repo_root = str(pathlib.Path(__file__).resolve().parents[2])
-    if repo_root not in sys.path:
-        sys.path.insert(0, repo_root)
-    from infra_deploy_cli import cli as gedeploy_cli
+    infra_root = str(pathlib.Path(__file__).resolve().parents[2] / "infra")
+    if infra_root not in sys.path:
+        sys.path.insert(0, infra_root)
+    from gedeploy_cli import cli as gedeploy_cli
 
-    # 1. gedeploy --list --json (7 Core Steps + 7 Optional Add-On Modules)
+    # 1. gedeploy --list --json (7 Core Steps + 5 Optional Add-On Modules)
     rc = gedeploy_cli.main(["--list", "--json"])
     assert rc == 0
     steps_out = json.loads(capsys.readouterr().out)
-    assert steps_out["total"] == 14
+    assert steps_out["total"] == 12
     assert steps_out["core_steps_count"] == 7
-    assert steps_out["optional_addons_count"] == 7
+    assert steps_out["optional_addons_count"] == 5
     modules_by_name = {m["name"]: m for m in steps_out["modules"]}
     assert modules_by_name["gcp-foundation"]["default_enabled"] is True
     assert modules_by_name["entra-bootstrap"]["default_enabled"] is True
     assert modules_by_name["m365-connectors"]["default_enabled"] is True
     assert modules_by_name["ge-apps"]["default_enabled"] is True
-    assert modules_by_name["universal-agent"]["default_enabled"] is False
-    assert modules_by_name["skill-sharing"]["default_enabled"] is False
     assert modules_by_name["servicenow-bootstrap"]["default_enabled"] is False
     assert modules_by_name["servicenow-connector"]["default_enabled"] is False
     assert modules_by_name["atlassian-bootstrap"]["default_enabled"] is False
