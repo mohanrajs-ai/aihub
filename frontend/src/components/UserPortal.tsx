@@ -24,7 +24,7 @@ import {
 } from '../types/catalog';
 
 export interface UserPortalProps {
-  user: UserContext | null;
+  user?: UserContext | null;
   apps: CatalogApplication[];
   agents: AgentSummary[];
   mcpServers: McpServerSummary[];
@@ -37,6 +37,8 @@ export interface UserPortalProps {
   categories?: string[];
   departments?: string[];
   groups?: string[];
+  pendingSkillsCount?: number;
+  approvedSkillsCount?: number;
 }
 
 function filterApps(
@@ -78,7 +80,6 @@ function filterApps(
 }
 
 export function UserPortal({
-  user,
   apps,
   agents,
   mcpServers,
@@ -91,6 +92,8 @@ export function UserPortal({
   categories = [],
   departments = [],
   groups = [],
+  pendingSkillsCount = 0,
+  approvedSkillsCount,
 }: UserPortalProps): React.ReactElement {
   const [activeSection, setActiveSection] = useState<PortalSection>('apps');
   const [appsViewMode, setAppsViewMode] = useState<'grid' | 'list'>('list');
@@ -136,8 +139,8 @@ export function UserPortal({
         onSelectSection={setActiveSection}
         appsCount={apps.length}
         skillsCount={skills.length}
-        pendingSkillsCount={0}
-        approvedSkillsCount={registrySkills.length || skills.length}
+        pendingSkillsCount={pendingSkillsCount}
+        approvedSkillsCount={approvedSkillsCount ?? (registrySkills.length || skills.length)}
         agentsCount={agents.length || 1}
         mcpCount={mcpServers.length || 7}
         isAdmin={false}
@@ -152,7 +155,9 @@ export function UserPortal({
             <div className="flex items-center gap-3">
               <AlertCircle className="h-5 w-5 shrink-0" aria-hidden="true" />
               <div>
-                <p className="font-semibold">Unable to load catalog</p>
+                <p className="font-semibold">
+                  Unable to load application catalog
+                </p>
                 <p className="text-xs opacity-90">{error}</p>
               </div>
             </div>
