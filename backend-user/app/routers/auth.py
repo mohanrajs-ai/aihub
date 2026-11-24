@@ -134,8 +134,6 @@ def google_oauth_callback(
 
     resolved_email = claims["email"]
     roles = ["employee"]
-    if resolved_email in settings.admin_users:
-        roles.insert(0, "admin")
 
     auth.upsert_authenticated_user(
         session=session,
@@ -205,8 +203,6 @@ def login_user(
         )
 
     roles = auth._normalize_roles(payload.role)  # pylint: disable=protected-access
-    if resolved_email in settings.admin_users and "admin" not in roles:
-        roles.insert(0, "admin")
 
     auth.upsert_authenticated_user(
         session=session,

@@ -589,12 +589,10 @@ def resolve_current_user(request: fastapi.Request) -> models.UserContext:
             dev_role = headers.get("x-dev-user-role")
             if dev_role and "@" not in dev_role:
                 token_user.roles = _normalize_roles(dev_role)
-            clean_token_email = (token_user.email or "").strip().lower()
-            if (
-                clean_token_email in settings.admin_users
-                or clean_token_email.startswith("admin@")
-            ) and "admin" not in token_user.roles:
-                token_user.roles.insert(0, "admin")
+            else:
+                token_user.roles = [
+                    r for r in token_user.roles if r.lower() != "admin"
+                ] or ["employee"]
             token_user.license_type = resolve_user_license_type(
                 token_user.email,
                 token_user.roles,
@@ -675,8 +673,6 @@ def resolve_current_user(request: fastapi.Request) -> models.UserContext:
     adc_email = _resolve_adc_user_email()
     if adc_email:
         roles = ["employee"]
-        if adc_email in settings.admin_users:
-            roles.insert(0, "admin")
         return _enrich_groups_from_db(
             models.UserContext(
                 email=adc_email,

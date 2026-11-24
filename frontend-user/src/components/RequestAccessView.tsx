@@ -67,14 +67,11 @@ export function RequestAccessView({
     [accessRequests],
   );
 
-  // Show apps the user can request access to (or all enterprise apps if allApps is populated)
-  const requestableApps = useMemo(() => {
-    const source = allApps.length > 0 ? allApps : authorizedApps;
-    const ungranted = source.filter(
-      (app) => !authorizedEngineIds.has(app.engine_id),
-    );
-    return ungranted.length > 0 ? ungranted : source;
-  }, [allApps, authorizedApps, authorizedEngineIds]);
+  // Strictly show only applications that the user does NOT currently have access to
+  const requestableApps = useMemo(
+    () => allApps.filter((app) => !authorizedEngineIds.has(app.engine_id)),
+    [allApps, authorizedEngineIds],
+  );
 
   const currentLicense = (user?.license_type || 'none').toLowerCase();
 
@@ -219,6 +216,12 @@ export function RequestAccessView({
           </div>
         </div>
 
+        {requestableApps.length === 0 ? (
+          <div className="px-6 py-10 text-center text-xs text-slate-500 dark:text-slate-400">
+            You already have access to all available Gemini Enterprise
+            applications.
+          </div>
+        ) : (
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-slate-200 text-left text-xs dark:divide-slate-800">
             <thead className="bg-slate-50 font-semibold uppercase tracking-wider text-slate-500 dark:bg-slate-800/60 dark:text-slate-400">
@@ -297,6 +300,7 @@ export function RequestAccessView({
             </tbody>
           </table>
         </div>
+        )}
       </section>
     </div>
   );

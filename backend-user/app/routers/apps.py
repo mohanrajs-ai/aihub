@@ -98,26 +98,35 @@ def list_apps(
 
 @router.get("/requestable", response_model=models.CatalogResponse)
 def list_requestable_apps(
-    _user: models.UserContext = fastapi.Depends(auth.resolve_current_user),
+    user: models.UserContext = fastapi.Depends(auth.resolve_current_user),
     catalog_service: catalog.CatalogService = fastapi.Depends(
         get_catalog_service
     ),
 ) -> models.CatalogResponse:
-    """Returns all enterprise GE applications so users can request access."""
+    """Returns GE applications that the current user does NOT have access to."""
+    user_visible = catalog_service.list_visible_applications(
+        user_roles=user.roles,
+        user_email=user.email,
+        user_groups=user.groups or None,
+    )
+    authorized_ids = {item.engine_id for item in user_visible}
     all_apps = catalog_service.list_visible_applications(
         user_roles=["admin"],
         user_email="admin@mohanrajs.demo.altostrat.com",
     )
-    categories = sorted({item.category for item in all_apps})
-    departments = sorted({item.department for item in all_apps})
+    ungranted_apps = [
+        item for item in all_apps if item.engine_id not in authorized_ids
+    ]
+    categories = sorted({item.category for item in ungranted_apps})
+    departments = sorted({item.department for item in ungranted_apps})
     groups: set[str] = set()
-    for item in all_apps:
+    for item in ungranted_apps:
         for role in item.allowed_roles:
             if role.startswith("group:"):
                 groups.add(role.split(":", 1)[1].strip().lower())
     return models.CatalogResponse(
-        items=all_apps,
-        total=len(all_apps),
+        items=ungranted_apps,
+        total=len(ungranted_apps),
         categories=categories,
         departments=departments,
         groups=sorted(groups),
