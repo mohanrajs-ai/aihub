@@ -57,8 +57,12 @@ function BrandLogo({
 }): React.ReactElement {
   if (logoUrl) {
     return (
-      <div className="flex h-10 items-center rounded-xl border border-slate-200/80 bg-white px-2.5 py-1 shadow-sm dark:border-slate-700">
-        <img src={logoUrl} alt={logoAlt} className="h-7 w-auto object-contain" />
+      <div className="flex items-center rounded-lg bg-white px-2.5 py-1 dark:bg-white/95">
+        <img
+          src={logoUrl}
+          alt={logoAlt}
+          className="h-9 w-auto object-contain"
+        />
       </div>
     );
   }
@@ -86,10 +90,14 @@ export function AdminHeader({
     <header className="sticky top-0 z-30 border-b border-indigo-200/80 bg-white/95 backdrop-blur-md dark:border-indigo-950 dark:bg-slate-900/95">
       <div className="flex w-full flex-wrap items-center justify-between gap-3 px-4 py-2.5 sm:px-6">
         {/* Left: Brand Logo + Admin Console Title */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3.5">
           <BrandLogo logoUrl={logoUrl} logoAlt={logoAlt} />
+          <span
+            className="h-6 w-px bg-slate-200 dark:bg-slate-700"
+            aria-hidden="true"
+          />
           <div className="flex items-center gap-2">
-            <h1 className="text-base font-semibold tracking-tight text-slate-900 dark:text-white">
+            <h1 className="text-lg font-bold tracking-tight text-slate-900 dark:text-white">
               {brandName}
             </h1>
             <span className="inline-flex items-center gap-1 rounded-md bg-indigo-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">

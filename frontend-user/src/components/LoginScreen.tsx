@@ -52,11 +52,11 @@ export function LoginScreen({
       <div className="w-full max-w-md rounded-2xl border border-slate-200/90 bg-white p-8 shadow-lg dark:border-slate-800 dark:bg-slate-900">
         <div className="flex flex-col items-center text-center">
           {logoUrl ? (
-            <div className="flex h-12 items-center rounded-xl border border-slate-200/80 bg-white px-3 py-1.5 shadow-sm dark:border-slate-700">
+            <div className="flex items-center rounded-xl bg-white px-4 py-2 dark:bg-white/95">
               <img
                 src={logoUrl}
                 alt={logoAlt}
-                className="h-8 w-auto object-contain"
+                className="h-11 w-auto object-contain"
               />
             </div>
           ) : (
