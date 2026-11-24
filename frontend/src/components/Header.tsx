@@ -35,6 +35,9 @@ export interface HeaderProps {
   logoUrl?: string;
   logoAlt?: string;
   subtitle?: string;
+  isAdmin?: boolean;
+  activeSystem?: 'user' | 'admin';
+  onSystemChange?: (system: 'user' | 'admin') => void;
 }
 
 const AVAILABLE_DEV_ROLES = [
@@ -99,6 +102,9 @@ export function Header({
   logoUrl = DEFAULT_BRANDING.logoUrl,
   logoAlt = DEFAULT_BRANDING.logoAlt,
   subtitle = DEFAULT_BRANDING.subtitle,
+  isAdmin = false,
+  activeSystem = 'user',
+  onSystemChange,
 }: HeaderProps): React.ReactElement {
   const { theme, toggleTheme } = useTheme();
   const [isUserMenuOpen, setIsUserMenuOpen] = useState<boolean>(false);
@@ -119,12 +125,45 @@ export function Header({
               <h1 className="text-base font-semibold tracking-tight text-slate-900 dark:text-white">
                 {brandName}
               </h1>
+              {activeSystem === 'admin' && (
+                <span className="rounded-md bg-indigo-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+                  Admin Console
+                </span>
+              )}
             </div>
             <p className="text-[11px] text-slate-500 dark:text-slate-400">
               {subtitle}
             </p>
           </div>
         </div>
+
+        {/* Center/Switch: Portal Switcher for Admin Users */}
+        {isAdmin && onSystemChange && (
+          <div className="flex items-center rounded-lg border border-slate-200 bg-slate-100 p-0.5 dark:border-slate-700 dark:bg-slate-800">
+            <button
+              type="button"
+              onClick={() => onSystemChange('user')}
+              className={`rounded-md px-3 py-1 text-xs font-semibold transition ${
+                activeSystem === 'user'
+                  ? 'bg-white text-blue-600 shadow-xs dark:bg-slate-900 dark:text-blue-400'
+                  : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200'
+              }`}
+            >
+              User Portal
+            </button>
+            <button
+              type="button"
+              onClick={() => onSystemChange('admin')}
+              className={`rounded-md px-3 py-1 text-xs font-semibold transition ${
+                activeSystem === 'admin'
+                  ? 'bg-white text-indigo-600 shadow-xs dark:bg-slate-900 dark:text-indigo-400'
+                  : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200'
+              }`}
+            >
+              Admin Console
+            </button>
+          </div>
+        )}
 
         {/* Right: Project Selector Pill on top + Logged-in User Menu Dropdown below it */}
         <div className="flex flex-col items-end gap-1.5">
