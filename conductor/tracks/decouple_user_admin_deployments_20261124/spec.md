@@ -37,10 +37,12 @@ Additionally, this track provides two independent container deployment manifests
 - Built-in Access Guard: Displays an Access Denied banner if accessed by non-admin accounts.
 - Dev server runs on port `5174`.
 
-### AR-3: Independent Multi-Container Deployments
-- **`Dockerfile.user`**: Multi-stage Docker build that compiles `frontend-user` and packages it into a production container serving the User Portal (Port 8080).
-- **`Dockerfile.admin`**: Multi-stage Docker build that compiles `frontend-admin` and packages it into an isolated production container serving the Admin Console (Port 8082).
-- **`docker-compose.yml`**: Defines independent `user-portal` and `admin-console` container services communicating with the backend API and database.
+### AR-3: Independent Multi-Container Deployments & Backend Entrypoints
+- **`backend/app/user_main.py` (`app.user_main:app`)**: Dedicated FastAPI entrypoint for the User Portal deployment (`portal_mode="user"`), serving `frontend-user/dist` and omitting administrative Terraform provisioning and sync trigger routers.
+- **`backend/app/admin_main.py` (`app.admin_main:app`)**: Dedicated FastAPI entrypoint for the Admin Console deployment (`portal_mode="admin"`), serving `frontend-admin/dist` and exposing all governance, Terraform provisioning, and sync routers.
+- **`Dockerfile.user`**: Multi-stage Docker build that compiles `frontend-user` and packages it into a production container running `app.user_main:app` (Port 8080).
+- **`Dockerfile.admin`**: Multi-stage Docker build that compiles `frontend-admin` and packages it into an isolated production container running `app.admin_main:app` (Port 8082).
+- **`docker-compose.yml`**: Defines independent `user-portal` and `admin-console` container services communicating with PostgreSQL.
 
 ---
 

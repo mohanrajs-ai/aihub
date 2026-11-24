@@ -24,13 +24,13 @@
   - [x] Run `npm test -- --run` and `npm run build` to verify clean build [b2cb120]
 - [x] Task: Phase 2 Verification & Checkpoint (Refer to workflow.md) [b2cb120]
 
-## Phase 3: Dual Independent Container Deployments & Docker Compose
-- [ ] Task: Create `Dockerfile.user` for standalone User Portal container
-- [ ] Task: Create `Dockerfile.admin` for standalone Admin Console container
-- [ ] Task: Update `docker-compose.yml` to define independent `user-portal` (port 8080) and `admin-console` (port 8082) services
-- [ ] Task: Phase 3 Verification & Checkpoint (Refer to workflow.md)
+## Phase 3: Dual Independent Container Deployments & Docker Compose [checkpoint: e22dcb9]
+- [x] Task: Create `Dockerfile.user` and `backend/app/user_main.py` for standalone User Portal container [e22dcb9]
+- [x] Task: Create `Dockerfile.admin` and `backend/app/admin_main.py` for standalone Admin Console container [e22dcb9]
+- [x] Task: Update `docker-compose.yml` to define independent `user-portal` (port 8080) and `admin-console` (port 8082) services [e22dcb9]
+- [x] Task: Phase 3 Verification & Checkpoint (Refer to workflow.md) [e22dcb9]
 
-## Phase 4: Full System Verification, Regressions & Conductor Synchronization
-- [ ] Task: Run full test suites across `frontend-user/`, `frontend-admin/`, and `backend/`
-- [ ] Task: Update `conductor/product.md` and `conductor/tech-stack.md` to document two separate codebases and multi-container deployments
-- [ ] Task: Phase 4 Verification & Checkpoint (Refer to workflow.md)
+## Phase 4: Full System Verification, Regressions & Conductor Synchronization [checkpoint: e22dcb9]
+- [x] Task: Run full test suites across `frontend-user/`, `frontend-admin/`, and `backend/` [e22dcb9]
+- [x] Task: Update `conductor/product.md` and `conductor/tech-stack.md` to document two separate codebases and multi-container deployments [e22dcb9]
+- [x] Task: Phase 4 Verification & Checkpoint (Refer to workflow.md) [e22dcb9]
