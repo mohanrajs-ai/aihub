@@ -58,10 +58,8 @@ export function Header({
   onSignOut,
   projectId = 'cymbal-app-514110',
   brandName = DEFAULT_BRANDING.brandName,
-  orgName = DEFAULT_BRANDING.orgName,
   logoUrl = DEFAULT_BRANDING.logoUrl,
   logoAlt = DEFAULT_BRANDING.logoAlt,
-  subtitle = DEFAULT_BRANDING.subtitle,
 }: HeaderProps): React.ReactElement {
   const { theme, toggleTheme } = useTheme();
   const [isUserMenuOpen, setIsUserMenuOpen] = useState<boolean>(false);
@@ -71,22 +69,11 @@ export function Header({
     <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur-md dark:border-slate-800 dark:bg-slate-900/95">
       <div className="flex w-full flex-wrap items-center justify-between gap-3 px-4 py-2.5 sm:px-6">
         {/* Left: Brand Logo + Portal Title */}
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-3">
           <BrandLogo logoUrl={logoUrl} logoAlt={logoAlt} />
-          <div className="flex flex-col">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-red-600 dark:text-red-400">
-                {orgName}
-              </span>
-              <span className="text-slate-300 dark:text-slate-700">|</span>
-              <h1 className="text-base font-semibold tracking-tight text-slate-900 dark:text-white">
-                {brandName}
-              </h1>
-            </div>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400">
-              {subtitle}
-            </p>
-          </div>
+          <h1 className="text-base font-semibold tracking-tight text-slate-900 dark:text-white">
+            {brandName}
+          </h1>
         </div>
 
         {/* Right: Inline Project Pill + Theme Toggle + User Profile Dropdown */}

@@ -76,7 +76,6 @@ export function AdminHeader({
   onSignOut,
   projectId = 'cymbal-app-514110',
   brandName = DEFAULT_BRANDING.brandName,
-  orgName = DEFAULT_BRANDING.orgName,
   logoUrl = DEFAULT_BRANDING.logoUrl,
   logoAlt = DEFAULT_BRANDING.logoAlt,
 }: AdminHeaderProps): React.ReactElement {
@@ -87,25 +86,16 @@ export function AdminHeader({
     <header className="sticky top-0 z-30 border-b border-indigo-200/80 bg-white/95 backdrop-blur-md dark:border-indigo-950 dark:bg-slate-900/95">
       <div className="flex w-full flex-wrap items-center justify-between gap-3 px-4 py-2.5 sm:px-6">
         {/* Left: Brand Logo + Admin Console Title */}
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-3">
           <BrandLogo logoUrl={logoUrl} logoAlt={logoAlt} />
-          <div className="flex flex-col">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-red-600 dark:text-red-400">
-                {orgName}
-              </span>
-              <span className="text-slate-300 dark:text-slate-700">|</span>
-              <h1 className="text-base font-semibold tracking-tight text-slate-900 dark:text-white">
-                {brandName}
-              </h1>
-              <span className="inline-flex items-center gap-1 rounded-md bg-indigo-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
-                <Lock className="h-2.5 w-2.5" aria-hidden="true" />
-                Admin Console
-              </span>
-            </div>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400">
-              Enterprise Governance, Infrastructure Provisioning & RBAC Control Plane
-            </p>
+          <div className="flex items-center gap-2">
+            <h1 className="text-base font-semibold tracking-tight text-slate-900 dark:text-white">
+              {brandName}
+            </h1>
+            <span className="inline-flex items-center gap-1 rounded-md bg-indigo-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+              <Lock className="h-2.5 w-2.5" aria-hidden="true" />
+              Admin Console
+            </span>
           </div>
         </div>
 

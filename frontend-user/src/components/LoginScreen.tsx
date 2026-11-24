@@ -33,7 +33,6 @@ export function LoginScreen({
   onLoginEmail,
   onLoginSsoPopup,
   brandName = DEFAULT_BRANDING.brandName,
-  orgName = DEFAULT_BRANDING.orgName,
   logoUrl = DEFAULT_BRANDING.logoUrl,
   logoAlt = DEFAULT_BRANDING.logoAlt,
   projectId = 'cymbal-app-514110',
@@ -66,7 +65,7 @@ export function LoginScreen({
             </div>
           )}
           <span className="mt-3 rounded-full bg-red-50 px-2.5 py-0.5 font-mono text-[11px] font-semibold text-red-700 dark:bg-red-950/70 dark:text-red-300">
-            {orgName} • {projectId}
+            {projectId}
           </span>
           <h1 className="mt-2 text-xl font-bold tracking-tight text-slate-900 dark:text-white">
             Sign in to {brandName}
