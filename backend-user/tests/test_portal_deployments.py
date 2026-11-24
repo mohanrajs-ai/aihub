@@ -36,6 +36,26 @@ def test_user_backend_serves_only_app_catalog_and_auth_routes() -> None:
     apps_res = client.get("/api/v1/apps")
     assert apps_res.status_code == 200
 
+    me_std = client.get(
+        "/api/v1/me",
+        headers={
+            "X-Dev-User-Email": "pradeepg@mohanrajs.demo.altostrat.com",
+            "X-Dev-User-Role": "employee",
+        },
+    )
+    assert me_std.status_code == 200
+    assert me_std.json()["license_type"] == "standard"
+
+    me_plus = client.get(
+        "/api/v1/me",
+        headers={
+            "X-Dev-User-Email": "mohanraj@mohanrajs.demo.altostrat.com",
+            "X-Dev-User-Role": "engineering",
+        },
+    )
+    assert me_plus.status_code == 200
+    assert me_plus.json()["license_type"] == "plus"
+
     # Skills, Agents, Connectors/MCP, and Admin routes are omitted from backend-user
     assert client.get("/api/v1/skills").status_code == 404
     assert client.get("/api/v1/agents").status_code == 404

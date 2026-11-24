@@ -158,6 +158,7 @@ def google_oauth_callback(
         user_id=claims.get("sub") or resolved_email,
         roles=roles,
         groups=user_groups,
+        license_type=auth.resolve_user_license_type(resolved_email, roles),
         auth_source="google_cloud_identity_sso",
     )
     token = auth.create_session_token(user_ctx, settings.session_secret)
@@ -227,6 +228,7 @@ def login_user(
         user_id=resolved_email,
         roles=roles,
         groups=user_groups,
+        license_type=auth.resolve_user_license_type(resolved_email, roles),
         auth_source="session_token",
     )
     token = auth.create_session_token(user_ctx, settings.session_secret)

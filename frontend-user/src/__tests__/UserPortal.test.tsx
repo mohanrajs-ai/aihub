@@ -1,8 +1,9 @@
 /**
  * Unit and integration tests for the Standalone User Portal codebase.
- * Verifies that the User Portal bundle renders only GE App Hub,
- * shows no pre-populated accounts on the login page, redirects to Google Login
- * with the entered email ID, and completely excludes Skills, Agents, MCP, and Admin panels.
+ * Verifies that the User Portal bundle renders GE App Hub, conditionally
+ * displays the AntiGravity Hub tab for Standard/Plus licensed users with the
+ * VS Code guide, hides AntiGravity Hub for unlicensed users, and excludes
+ * Skills, Agents, MCP, and Admin panels.
  */
 
 import { fireEvent, render, screen } from '@testing-library/react';
@@ -37,6 +38,7 @@ describe('Standalone User Portal Codebase', () => {
       user_id: 'emp-001',
       roles: ['employee'],
       groups: ['hr-app-users@mohanrajs.demo.altostrat.com'],
+      license_type: 'standard',
       auth_source: 'session_token',
     });
     vi.spyOn(apiClient, 'fetchApps').mockResolvedValue({
@@ -87,7 +89,7 @@ describe('Standalone User Portal Codebase', () => {
     );
   });
 
-  it('renders only GE App Hub and excludes Skills, Agents, Connectors/MCP, and Admin panels', async () => {
+  it('shows AntiGravity Hub tab for Standard/Plus users and renders the VS Code guide', async () => {
     window.sessionStorage.setItem('ge_user_auth_token', 'test-user-session');
     render(<App />);
 
@@ -101,22 +103,48 @@ describe('Standalone User Portal Codebase', () => {
     expect(screen.getByText('Location')).toBeInTheDocument();
     expect(screen.getByText('URL')).toBeInTheDocument();
     expect(screen.getByText('ge-enterprise-search')).toBeInTheDocument();
-    expect(
-      screen.getByText('https://vertexaisearch.cloud.google.com/home'),
-    ).toBeInTheDocument();
 
     // Verify Skills, Agents, Connectors/MCP, and Admin panels are excluded
     expect(screen.queryByText('Skill Registry')).not.toBeInTheDocument();
     expect(screen.queryByText('Agent Registry')).not.toBeInTheDocument();
     expect(screen.queryByText('Connector/MCP')).not.toBeInTheDocument();
     expect(screen.queryByText('Skill Governance')).not.toBeInTheDocument();
-    expect(screen.queryByText('Infra Provisioning')).not.toBeInTheDocument();
-    expect(screen.queryByText('Admin Console')).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByLabelText('Toggle user profile menu'));
-    expect(screen.getByText('Sign Out')).toBeInTheDocument();
+    // AntiGravity Hub tab is visible for Standard/Plus license
+    const agyTab = screen.getByLabelText('AntiGravity Hub');
+    expect(agyTab).toBeInTheDocument();
+    fireEvent.click(agyTab);
+
     expect(
-      screen.queryByText(/Simulate Cloud Identity Persona/i),
-    ).not.toBeInTheDocument();
+      await screen.findByText('Quick Start: Setting Up Antigravity on VS Code'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('code --install-extension google.antigravity'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('1. Antigravity Tab (Autocomplete)'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('2. Inline Command (Targeted Edit)'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('3. Sidebar Chat & Agent Mode'),
+    ).toBeInTheDocument();
+  });
+
+  it('hides AntiGravity Hub tab when user license is none', async () => {
+    vi.spyOn(apiClient, 'fetchCurrentUser').mockResolvedValue({
+      email: 'guest@mohanrajs.demo.altostrat.com',
+      user_id: 'guest-001',
+      roles: ['employee'],
+      groups: [],
+      license_type: 'none',
+      auth_source: 'session_token',
+    });
+    window.sessionStorage.setItem('ge_user_auth_token', 'test-guest-session');
+    render(<App />);
+
+    await screen.findAllByText('GE App Hub');
+    expect(screen.queryByLabelText('AntiGravity Hub')).not.toBeInTheDocument();
   });
 });

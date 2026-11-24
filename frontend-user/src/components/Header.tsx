@@ -157,6 +157,11 @@ export function Header({
                   <p className="mt-1 text-[10px] text-slate-500 dark:text-slate-400">
                     Cloud Identity Groups: {groupCount}
                   </p>
+                  {user?.license_type && (
+                    <p className="mt-1 font-mono text-[10px] font-semibold uppercase text-indigo-600 dark:text-indigo-400">
+                      License: Gemini Enterprise {user.license_type}
+                    </p>
+                  )}
                 </div>
 
                 {onSignOut && (

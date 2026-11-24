@@ -7,6 +7,7 @@ export interface UserContext {
   user_id: string;
   roles: string[];
   groups?: string[];
+  license_type?: 'standard' | 'plus' | 'none' | string;
   auth_source: string;
 }
 
@@ -74,6 +75,7 @@ export interface SyncRunSummary {
 
 export type PortalSection =
   | 'apps'
+  | 'antigravity'
   | 'skills'
   | 'agents'
   | 'mcp'

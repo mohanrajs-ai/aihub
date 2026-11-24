@@ -13,6 +13,7 @@ import {
   fetchCurrentUser,
   logoutUser,
 } from './api/client';
+import { AntiGravityHubView } from './components/AntiGravityHubView';
 import { CatalogGrid } from './components/CatalogGrid';
 import { Header } from './components/Header';
 import { LoginScreen } from './components/LoginScreen';
@@ -26,6 +27,16 @@ import {
 } from './types/catalog';
 
 const SESSION_TOKEN_KEY = 'ge_user_auth_token';
+
+function isStandardOrPlusLicense(user: UserContext | null): boolean {
+  const tier = (user?.license_type ?? 'standard').trim().toLowerCase();
+  return (
+    tier === 'standard' ||
+    tier === 'plus' ||
+    tier === 'gemini_enterprise_standard' ||
+    tier === 'gemini_enterprise_plus'
+  );
+}
 
 function filterApps(
   apps: CatalogApplication[],
@@ -174,6 +185,11 @@ export function App(): React.ReactElement {
     setSelectedGroup('');
   }
 
+  const showAntiGravityHub = useMemo(
+    () => isStandardOrPlusLicense(user),
+    [user],
+  );
+
   return (
     <ThemeProvider>
       {!authToken ? (
@@ -194,6 +210,8 @@ export function App(): React.ReactElement {
               activeSection={activeSection}
               onSelectSection={setActiveSection}
               appsCount={apps.length}
+              showAntiGravityHub={showAntiGravityHub}
+              userLicenseType={user?.license_type || 'standard'}
             />
 
             <main className="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-8">
@@ -226,45 +244,51 @@ export function App(): React.ReactElement {
                   </div>
                 )}
 
-                <div className="mb-6">
-                  <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-                    GE App Hub
-                  </h2>
-                  <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                    Browse, filter, and launch Gemini Enterprise applications
-                    authorized for your Cloud Identity groups.
-                  </p>
-                </div>
+                {activeSection === 'antigravity' && showAntiGravityHub ? (
+                  <AntiGravityHubView user={user} />
+                ) : (
+                  <>
+                    <div className="mb-6">
+                      <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+                        GE App Hub
+                      </h2>
+                      <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                        Browse, filter, and launch Gemini Enterprise applications
+                        authorized for your Cloud Identity groups.
+                      </p>
+                    </div>
 
-                <SearchFilterBar
-                  searchQuery={searchQuery}
-                  selectedCategory={selectedCategory}
-                  selectedDepartment={selectedDepartment}
-                  selectedTag={selectedTag}
-                  selectedGroup={selectedGroup}
-                  categories={categories}
-                  departments={departments}
-                  groups={groups}
-                  totalCount={apps.length}
-                  filteredCount={filteredApps.length}
-                  onSearchChange={setSearchQuery}
-                  onCategoryChange={setSelectedCategory}
-                  onDepartmentChange={setSelectedDepartment}
-                  onGroupChange={setSelectedGroup}
-                  onClearFilters={handleClearFilters}
-                  viewMode={appsViewMode}
-                  onViewModeChange={setAppsViewMode}
-                />
+                    <SearchFilterBar
+                      searchQuery={searchQuery}
+                      selectedCategory={selectedCategory}
+                      selectedDepartment={selectedDepartment}
+                      selectedTag={selectedTag}
+                      selectedGroup={selectedGroup}
+                      categories={categories}
+                      departments={departments}
+                      groups={groups}
+                      totalCount={apps.length}
+                      filteredCount={filteredApps.length}
+                      onSearchChange={setSearchQuery}
+                      onCategoryChange={setSelectedCategory}
+                      onDepartmentChange={setSelectedDepartment}
+                      onGroupChange={setSelectedGroup}
+                      onClearFilters={handleClearFilters}
+                      viewMode={appsViewMode}
+                      onViewModeChange={setAppsViewMode}
+                    />
 
-                <CatalogGrid
-                  apps={filteredApps}
-                  loading={loading}
-                  onResetFilters={handleClearFilters}
-                  onSelectTag={(tag) =>
-                    setSelectedTag((prev) => (prev === tag ? '' : tag))
-                  }
-                  viewMode={appsViewMode}
-                />
+                    <CatalogGrid
+                      apps={filteredApps}
+                      loading={loading}
+                      onResetFilters={handleClearFilters}
+                      onSelectTag={(tag) =>
+                        setSelectedTag((prev) => (prev === tag ? '' : tag))
+                      }
+                      viewMode={appsViewMode}
+                    />
+                  </>
+                )}
               </div>
             </main>
           </div>

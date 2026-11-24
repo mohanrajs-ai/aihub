@@ -526,8 +526,33 @@ def resolve_user_groups_from_db(
     return []
 
 
+def resolve_user_license_type(
+    email: str,
+    roles: list[str],
+    header_license: str | None = None,
+) -> str:
+    """Resolves the user's Gemini Enterprise license tier ('standard', 'plus', or 'none')."""
+    if header_license and header_license.strip():
+        return header_license.strip().lower()
+    clean_email = (email or "").strip().lower()
+    if not clean_email or clean_email.startswith("anonymous@"):
+        return "none"
+    role_set = {r.strip().lower() for r in roles}
+    if (
+        "admin" in role_set
+        or "engineering" in role_set
+        or "cloud-architect" in role_set
+        or clean_email.startswith("mohanraj@")
+        or clean_email.startswith("admin@")
+    ):
+        return "plus"
+    return "standard"
+
+
 def _enrich_groups_from_db(user: models.UserContext) -> models.UserContext:
     """Populates user.groups from PostgreSQL if not already present."""
+    if not user.license_type:
+        user.license_type = resolve_user_license_type(user.email, user.roles)
     if user.groups:
         return user
     try:
@@ -556,6 +581,7 @@ def resolve_current_user(request: fastapi.Request) -> models.UserContext:
     headers = request.headers
 
     auth_header = headers.get("authorization")
+    header_license = headers.get("x-dev-user-license")
     if auth_header and auth_header.lower().startswith("bearer "):
         raw_token = auth_header.split(" ", 1)[1].strip()
         token_user = verify_session_token(raw_token, settings.session_secret)
@@ -569,6 +595,11 @@ def resolve_current_user(request: fastapi.Request) -> models.UserContext:
                 or clean_token_email.startswith("admin@")
             ) and "admin" not in token_user.roles:
                 token_user.roles.insert(0, "admin")
+            token_user.license_type = resolve_user_license_type(
+                token_user.email,
+                token_user.roles,
+                header_license or token_user.license_type,
+            )
             return _enrich_groups_from_db(token_user)
 
     iap_email = headers.get("x-goog-authenticated-user-email")
@@ -585,13 +616,16 @@ def resolve_current_user(request: fastapi.Request) -> models.UserContext:
                 email=clean_email,
                 user_id=clean_id,
                 roles=roles,
+                license_type=resolve_user_license_type(
+                    clean_email, roles, header_license
+                ),
                 auth_source="gcp_iap",
             )
         )
 
     dev_email = headers.get("x-dev-user-email")
     dev_role = headers.get("x-dev-user-role")
-    if dev_email or dev_role:
+    if dev_email or dev_role or header_license:
         if dev_role and "@" in dev_role and not dev_email:
             resolved_email = dev_role.strip().lower()
             resolved_roles = ["employee"]
@@ -615,16 +649,25 @@ def resolve_current_user(request: fastapi.Request) -> models.UserContext:
                 email=resolved_email,
                 user_id=resolved_email,
                 roles=resolved_roles,
+                license_type=resolve_user_license_type(
+                    resolved_email, resolved_roles, header_license
+                ),
                 auth_source="dev_override",
             )
         )
 
     if settings.use_mock_data:
+        mock_roles = ["employee", "engineering", "data-analyst"]
         return _enrich_groups_from_db(
             models.UserContext(
                 email="developer@enterprise.example.com",
                 user_id="dev-user-001",
-                roles=["employee", "engineering", "data-analyst"],
+                roles=mock_roles,
+                license_type=resolve_user_license_type(
+                    "developer@enterprise.example.com",
+                    mock_roles,
+                    header_license,
+                ),
                 auth_source="mock_default",
             )
         )
@@ -639,6 +682,9 @@ def resolve_current_user(request: fastapi.Request) -> models.UserContext:
                 email=adc_email,
                 user_id=adc_email,
                 roles=roles,
+                license_type=resolve_user_license_type(
+                    adc_email, roles, header_license
+                ),
                 auth_source="gcp_adc",
             )
         )
@@ -647,6 +693,7 @@ def resolve_current_user(request: fastapi.Request) -> models.UserContext:
         email="anonymous@enterprise.example.com",
         user_id="anonymous",
         roles=["employee"],
+        license_type="none",
         auth_source="unauthenticated_fallback",
     )
 

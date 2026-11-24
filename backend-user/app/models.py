@@ -12,6 +12,7 @@ class UserContext(pydantic.BaseModel):
     user_id: str
     roles: list[str]
     groups: list[str] = pydantic.Field(default_factory=list)
+    license_type: str = "standard"
     auth_source: str
 
 

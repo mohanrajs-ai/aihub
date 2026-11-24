@@ -1,6 +1,7 @@
 /**
  * User Portal Docked Left Navigation Sidebar (Google Cloud Console Style).
- * Displays navigation rail exclusively for GE App Hub.
+ * Displays GE App Hub and conditionally displays AntiGravity Hub when the user
+ * holds a 'standard' or 'plus' Gemini Enterprise license.
  */
 
 import React, { useState } from 'react';
@@ -8,6 +9,7 @@ import {
   LayoutGrid,
   PanelLeftClose,
   PanelLeftOpen,
+  Rocket,
 } from 'lucide-react';
 import { PortalSection } from '../types/catalog';
 
@@ -15,6 +17,8 @@ export interface SidebarProps {
   activeSection: PortalSection;
   onSelectSection: (section: PortalSection) => void;
   appsCount: number;
+  showAntiGravityHub?: boolean;
+  userLicenseType?: string;
   collapsed?: boolean;
   onToggleCollapse?: () => void;
 }
@@ -23,6 +27,8 @@ export function Sidebar({
   activeSection,
   onSelectSection,
   appsCount,
+  showAntiGravityHub = false,
+  userLicenseType = 'standard',
   collapsed,
   onToggleCollapse,
 }: SidebarProps): React.ReactElement {
@@ -42,7 +48,6 @@ export function Sidebar({
     label: string;
     description: string;
     icon: React.ReactNode;
-    count: number;
     badge?: React.ReactNode;
   }> = [
     {
@@ -50,13 +55,27 @@ export function Sidebar({
       label: 'GE App Hub',
       description: 'Gemini Enterprise Apps',
       icon: <LayoutGrid className="h-4 w-4 shrink-0" aria-hidden="true" />,
-      count: appsCount,
       badge: (
         <span className="rounded-full bg-slate-200/80 px-2 py-0.5 text-xs font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-300">
           {appsCount}
         </span>
       ),
     },
+    ...(showAntiGravityHub
+      ? [
+          {
+            id: 'antigravity' as PortalSection,
+            label: 'AntiGravity Hub',
+            description: 'Antigravity on VS Code',
+            icon: <Rocket className="h-4 w-4 shrink-0" aria-hidden="true" />,
+            badge: (
+              <span className="rounded-full bg-indigo-100 px-2 py-0.5 font-mono text-[10px] font-bold uppercase text-indigo-700 dark:bg-indigo-950/80 dark:text-indigo-300">
+                {userLicenseType}
+              </span>
+            ),
+          },
+        ]
+      : []),
   ];
 
   return (
