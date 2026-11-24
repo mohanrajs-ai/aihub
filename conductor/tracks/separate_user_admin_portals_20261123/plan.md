@@ -11,20 +11,20 @@
   - [x] Protect skill approval/rejection endpoints in `backend/app/routers/skills.py` with `require_admin_role` [c67569f]
 - [x] Task: Phase 1 Verification & Checkpoint (Refer to workflow.md) [c67569f]
 
-## Phase 2: User Portal and Admin Console UI Component Scaffolding
-- [ ] Task: Write frontend unit tests for separate User Portal and Admin Console components
-  - [ ] Create test suite verifying User Portal renders only Apps, Skills, Agents, MCP and excludes admin panels
-  - [ ] Create test suite verifying Admin Console renders Governance, Provisioning, Sync and blocks non-admin users
-  - [ ] Create test suite for Portal Switcher and unauthorized access fallback
-- [ ] Task: Implement dedicated User Portal component (`frontend/src/components/UserPortal.tsx`)
-  - [ ] Encapsulate user layout with user-centric navigation rail (Apps, Skills, Agents, MCP)
-  - [ ] Connect AppCard, CatalogGrid, SkillsSection (user view), AgentsView, and McpServersView
-  - [ ] Remove all admin governance and provisioning clutter from user views
-- [ ] Task: Implement dedicated Admin Console component (`frontend/src/components/AdminConsole.tsx`)
-  - [ ] Encapsulate admin layout with admin-centric navigation rail (Skill Governance, Provisioning, Sync Dashboard, Access Overview)
-  - [ ] Integrate Skill Governance review studio, ProvisioningStudio, and catalog sync triggers
-  - [ ] Implement unauthorized access guard with return button if non-admin accesses Admin Console
-- [ ] Task: Phase 2 Verification & Checkpoint (Refer to workflow.md)
+## Phase 2: User Portal and Admin Console UI Component Scaffolding [checkpoint: cca6527]
+- [x] Task: Write frontend unit tests for separate User Portal and Admin Console components [cca6527]
+  - [x] Create test suite verifying User Portal renders only Apps, Skills, Agents, MCP and excludes admin panels [cca6527]
+  - [x] Create test suite verifying Admin Console renders Governance, Provisioning, Sync and blocks non-admin users [cca6527]
+  - [x] Create test suite for Portal Switcher and unauthorized access fallback [cca6527]
+- [x] Task: Implement dedicated User Portal component (`frontend/src/components/UserPortal.tsx`) [cca6527]
+  - [x] Encapsulate user layout with user-centric navigation rail (Apps, Skills, Agents, MCP) [cca6527]
+  - [x] Connect AppCard, CatalogGrid, SkillsSection (user view), AgentsView, and McpServersView [cca6527]
+  - [x] Remove all admin governance and provisioning clutter from user views [cca6527]
+- [x] Task: Implement dedicated Admin Console component (`frontend/src/components/AdminConsole.tsx`) [cca6527]
+  - [x] Encapsulate admin layout with admin-centric navigation rail (Skill Governance, Provisioning, Sync Dashboard, Access Overview) [cca6527]
+  - [x] Integrate Skill Governance review studio, ProvisioningStudio, and catalog sync triggers [cca6527]
+  - [x] Implement unauthorized access guard with return button if non-admin accesses Admin Console [cca6527]
+- [x] Task: Phase 2 Verification & Checkpoint (Refer to workflow.md) [cca6527]
 
 ## Phase 3: Header Portal Switcher & App Router Integration
 - [ ] Task: Write unit tests for Header portal switcher and route management in `App.tsx`
