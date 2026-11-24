@@ -1,16 +1,14 @@
 /**
  * AntiGravity Hub View Component (`frontend-user`).
  * Displayed exclusively when the authenticated user holds a Gemini Enterprise
- * 'standard' or 'plus' license. Provides a vertical step-by-step guide on
- * setting up and using Google Antigravity on VS Code, followed by help commands.
+ * 'standard' or 'plus' license. Provides a vertical step-by-step VS Code GUI
+ * guide (no CLI required), followed by in-editor shortcuts and slash commands.
  */
 
-import React, { useState } from 'react';
+import React from 'react';
 import {
-  Check,
   Code2,
   Command,
-  Copy,
   Cpu,
   KeyRound,
   Rocket,
@@ -27,16 +25,7 @@ export interface AntiGravityHubViewProps {
 export function AntiGravityHubView({
   user,
 }: AntiGravityHubViewProps): React.ReactElement {
-  const [copiedCmd, setCopiedCmd] = useState<string | null>(null);
   const licenseTier = (user?.license_type || 'standard').toUpperCase();
-
-  function handleCopy(text: string): void {
-    if (navigator.clipboard) {
-      void navigator.clipboard.writeText(text);
-    }
-    setCopiedCmd(text);
-    window.setTimeout(() => setCopiedCmd(null), 1500);
-  }
 
   const setupSteps = [
     {
@@ -44,33 +33,29 @@ export function AntiGravityHubView({
       step: 'Step 1',
       title: 'Install Google Antigravity Extension in VS Code',
       description:
-        'Open VS Code Extensions (⇧⌘X on macOS / Ctrl+Shift+X on Windows & Linux), search for "Google Antigravity", and click Install — or run the terminal command below.',
-      command: 'code --install-extension google.antigravity',
+        'Open VS Code, click the Extensions icon in the left Activity Bar (⇧⌘X on macOS / Ctrl+Shift+X on Windows & Linux), search for "Google Antigravity", and click Install.',
     },
     {
       stepNumber: '2',
       step: 'Step 2',
       title: 'Sign In with Your Tech-M Google Cloud Identity Account',
-      description: `Open the VS Code Command Palette (⇧⌘P / Ctrl+Shift+P), select "Antigravity: Sign In with Google", and sign in using ${
+      description: `Open the VS Code Command Palette (⇧⌘P / Ctrl+Shift+P), select "Antigravity: Sign In with Google", and sign in in your browser using ${
         user?.email || 'your licensed Tech-M account'
-      } (${licenseTier} license) linked to GCP project cymbal-app-514110.`,
-      command: 'agy auth login --project cymbal-app-514110',
+      } (${licenseTier} license).`,
     },
     {
       stepNumber: '3',
       step: 'Step 3',
-      title: 'Open Your Project Workspace & Load Enterprise Skills',
+      title: 'Select Your Google Cloud Project in VS Code',
       description:
-        'Open your repository folder in VS Code. Antigravity automatically discovers workspace-scoped rules, skills (.agents/skills/), and MCP servers configured for your project.',
-      command: 'agy --workspace .',
+        'Click the Antigravity status item in the bottom VS Code Status Bar (or open the Command Palette -> "Antigravity: Select Cloud Project") and choose cymbal-app-514110.',
     },
     {
       stepNumber: '4',
       step: 'Step 4',
-      title: 'Verify Setup & List Available Help Commands',
+      title: 'Open the Antigravity Sidebar & Start Coding',
       description:
-        'Open the Antigravity sidebar panel in VS Code (or terminal) and run /help or agy --help to inspect all available commands, keybindings, and active tools.',
-      command: 'agy --help',
+        'Click the Google Antigravity icon in the VS Code Activity Bar to open the Agent Chat panel, or highlight code in any editor tab and press ⌘+I (macOS) / Ctrl+I (Windows & Linux).',
     },
   ];
 
@@ -78,12 +63,12 @@ export function AntiGravityHubView({
     {
       command: '/help',
       purpose:
-        'Display all available interactive slash commands, keyboard shortcuts, and active MCP/skill integrations.',
+        'Display all available interactive slash commands, keyboard shortcuts, and active VS Code agent capabilities.',
     },
     {
       command: '/plan',
       purpose:
-        'Generate and review a structured step-by-step implementation plan before executing code changes.',
+        'Generate and review a structured step-by-step implementation plan in the VS Code chat panel before executing code changes.',
     },
     {
       command: '/goal',
@@ -98,7 +83,7 @@ export function AntiGravityHubView({
     {
       command: '/grill-me',
       purpose:
-        'Start an interactive design interview to resolve architecture and requirements decisions before coding.',
+        'Start an interactive design interview in chat to resolve architecture and requirements decisions before coding.',
     },
     {
       command: '/teamwork',
@@ -122,22 +107,26 @@ export function AntiGravityHubView({
     },
   ];
 
-  const cliHelpCommands = [
-    {
-      command: 'agy --help',
-      purpose: 'Show all Antigravity CLI flags, subcommands, and startup options.',
-    },
-    {
-      command: 'agy auth status',
-      purpose: 'Verify your active Google Cloud Identity session and Gemini Enterprise license tier.',
-    },
+  const editorShortcuts = [
     {
       command: '⌘+I / Ctrl+I',
-      purpose: 'Trigger Inline Command in VS Code to refactor, document, or generate code at your cursor.',
+      purpose:
+        'Trigger Inline Command in the VS Code editor to refactor, document, or generate code at your cursor.',
     },
     {
-      command: 'Tab / ⌘+→ (Ctrl+→)',
-      purpose: 'Accept Antigravity Tab Supercomplete suggestions (or accept word-by-word).',
+      command: 'Tab',
+      purpose:
+        'Accept Antigravity Tab Supercomplete multi-line code suggestions, Tab-to-Jump, and auto-imports.',
+    },
+    {
+      command: '⌘+→ / Ctrl+→',
+      purpose:
+        'Accept an inline autocomplete suggestion word-by-word inside the VS Code editor.',
+    },
+    {
+      command: '⇧⌘P / Ctrl+Shift+P',
+      purpose:
+        'Open the VS Code Command Palette to access all "Antigravity: ..." editor commands and settings.',
     },
   ];
 
@@ -178,7 +167,7 @@ export function AntiGravityHubView({
         </div>
       </div>
 
-      {/* Sequential One-After-Another Setup Steps */}
+      {/* Sequential One-After-Another Setup Steps (Pure VS Code UI, No CLI Commands) */}
       <section className="rounded-2xl border border-slate-200/90 bg-white p-6 shadow-2xs dark:border-slate-800 dark:bg-slate-900">
         <div className="flex items-center gap-2">
           <KeyRound className="h-5 w-5 text-blue-600 dark:text-blue-400" aria-hidden="true" />
@@ -187,11 +176,11 @@ export function AntiGravityHubView({
           </h3>
         </div>
 
-        <div className="mt-5 space-y-4">
+        <div className="mt-5 space-y-3.5">
           {setupSteps.map((item) => (
             <div
               key={item.step}
-              className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50/70 p-4 dark:border-slate-800 dark:bg-slate-800/40"
+              className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 dark:border-slate-800 dark:bg-slate-800/40"
             >
               <div className="flex items-start gap-3.5">
                 <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-600 font-mono text-xs font-bold text-white">
@@ -209,28 +198,6 @@ export function AntiGravityHubView({
                   <p className="mt-1 text-xs leading-relaxed text-slate-600 dark:text-slate-400">
                     {item.description}
                   </p>
-
-                  <div className="mt-3 flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-900 px-3.5 py-2 font-mono text-xs text-slate-100 dark:border-slate-700">
-                    <code className="truncate">{item.command}</code>
-                    <button
-                      type="button"
-                      onClick={() => handleCopy(item.command)}
-                      aria-label={`Copy command ${item.command}`}
-                      className="inline-flex shrink-0 items-center gap-1 rounded bg-slate-800 px-2.5 py-1 text-[11px] font-medium text-slate-200 hover:bg-slate-700"
-                    >
-                      {copiedCmd === item.command ? (
-                        <>
-                          <Check className="h-3 w-3 text-emerald-400" aria-hidden="true" />
-                          <span>Copied</span>
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="h-3 w-3" aria-hidden="true" />
-                          <span>Copy</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
                 </div>
               </div>
             </div>
@@ -295,14 +262,14 @@ export function AntiGravityHubView({
             </div>
             <p className="mt-1.5 text-xs text-slate-600 dark:text-slate-300">
               Open the Antigravity sidebar to plan features, edit multiple files,
-              run terminal test suites, auto-fix compiler/lint errors from the
-              VS Code Problems pane, and invoke MCP tools.
+              auto-fix compiler/lint errors from the VS Code Problems pane, and
+              invoke workspace skills and MCP tools.
             </p>
           </div>
         </div>
       </section>
 
-      {/* Help Commands & Slash Commands Reference Below */}
+      {/* Help Commands, Shortcuts & Slash Commands Reference Below */}
       <section className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-2xs dark:border-slate-800 dark:bg-slate-900">
         <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4 dark:border-slate-800">
           <div className="flex items-center gap-2">
@@ -313,7 +280,7 @@ export function AntiGravityHubView({
           </div>
           <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2.5 py-1 font-mono text-[11px] font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
             <Code2 className="h-3.5 w-3.5" aria-hidden="true" />
-            VS Code & agy CLI
+            VS Code Agent Chat & Editor
           </span>
         </div>
 
@@ -321,8 +288,8 @@ export function AntiGravityHubView({
           <table className="min-w-full divide-y divide-slate-200 text-left text-xs dark:divide-slate-800">
             <thead className="bg-slate-50 font-semibold uppercase tracking-wider text-slate-500 dark:bg-slate-800/60 dark:text-slate-400">
               <tr>
-                <th className="px-6 py-3">Command / Shortcut</th>
-                <th className="px-6 py-3">Description & Usage</th>
+                <th className="px-6 py-3">Slash Command / Shortcut</th>
+                <th className="px-6 py-3">Description & Usage in VS Code</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
@@ -342,7 +309,7 @@ export function AntiGravityHubView({
                   </td>
                 </tr>
               ))}
-              {cliHelpCommands.map((item) => (
+              {editorShortcuts.map((item) => (
                 <tr
                   key={item.command}
                   className="transition hover:bg-slate-50/80 dark:hover:bg-slate-800/40"

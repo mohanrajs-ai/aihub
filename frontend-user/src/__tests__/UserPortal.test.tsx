@@ -119,8 +119,11 @@ describe('Standalone User Portal Codebase', () => {
       await screen.findByText('Quick Start: Setting Up Antigravity on VS Code'),
     ).toBeInTheDocument();
     expect(
-      screen.getByText('code --install-extension google.antigravity'),
+      screen.getByText('Install Google Antigravity Extension in VS Code'),
     ).toBeInTheDocument();
+    expect(
+      screen.queryByText('code --install-extension google.antigravity'),
+    ).not.toBeInTheDocument();
     expect(
       screen.getByText('1. Antigravity Tab (Autocomplete)'),
     ).toBeInTheDocument();
