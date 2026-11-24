@@ -117,10 +117,16 @@ describe('Standalone User Portal Codebase', () => {
     expect(screen.getByText('Agent Registry')).toBeInTheDocument();
     expect(screen.getByText('Connector/MCP')).toBeInTheDocument();
 
-    // Verify zero administrative presence
+    // Verify zero administrative presence and no persona simulator in user menu
     expect(screen.queryByText('Skill Governance')).not.toBeInTheDocument();
     expect(screen.queryByText('Infra Provisioning')).not.toBeInTheDocument();
     expect(screen.queryByText('Admin Console')).not.toBeInTheDocument();
     expect(screen.queryByText('Admin & Governance')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByLabelText('Toggle user profile menu'));
+    expect(screen.getByText('Sign Out')).toBeInTheDocument();
+    expect(
+      screen.queryByText(/Simulate Cloud Identity Persona/i),
+    ).not.toBeInTheDocument();
   });
 });

@@ -1,7 +1,7 @@
 /**
  * User Portal Top Navigation Header.
- * Displays brand logo, portal title, GCP project pill, theme toggle, and user profile menu.
- * Contains ZERO administrative switches or admin console leakage.
+ * Displays brand logo, portal title, inline GCP project pill, theme toggle,
+ * and user profile dropdown with Sign Out.
  */
 
 import React, { useState } from 'react';
@@ -21,8 +21,8 @@ import { UserContext } from '../types/catalog';
 
 export interface HeaderProps {
   user: UserContext | null;
-  activeDevRole: string;
-  onDevRoleChange: (newRole: string) => void;
+  activeDevRole?: string;
+  onDevRoleChange?: (newRole: string) => void;
   onSignOut?: () => void;
   projectId?: string;
   brandName?: string;
@@ -31,20 +31,6 @@ export interface HeaderProps {
   logoAlt?: string;
   subtitle?: string;
 }
-
-const AVAILABLE_DEV_ROLES = [
-  { value: 'employee', label: 'Standard Employee (Active User Groups)' },
-  {
-    value: 'mohanraj@mohanrajs.demo.altostrat.com',
-    label: 'User: mohanraj@ (HR & Corporate Apps)',
-  },
-  {
-    value: 'pradeepg@mohanrajs.demo.altostrat.com',
-    label: 'User: pradeepg@ (Service Desk & Finance)',
-  },
-  { value: 'engineering', label: 'Engineering' },
-  { value: 'data-analyst', label: 'Data & FinOps Analyst' },
-];
 
 function BrandLogo({
   logoUrl,
@@ -69,8 +55,6 @@ function BrandLogo({
 
 export function Header({
   user,
-  activeDevRole,
-  onDevRoleChange,
   onSignOut,
   projectId = 'cymbal-app-514110',
   brandName = DEFAULT_BRANDING.brandName,
@@ -105,50 +89,48 @@ export function Header({
           </div>
         </div>
 
-        {/* Right: Project Pill + User Menu */}
-        <div className="flex flex-col items-end gap-1.5">
-          <div className="flex items-center gap-2">
-            <div
-              className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-700 shadow-2xs dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-200"
-              title="Active Google Cloud Project"
-            >
-              <FolderGit2
-                className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400"
-                aria-hidden="true"
-              />
-              <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                Project:
-              </span>
-              <span className="font-mono font-semibold text-slate-900 dark:text-white">
-                {projectId}
-              </span>
-              <span className="rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-semibold text-blue-700 dark:bg-blue-950 dark:text-blue-300">
-                Cymbal
-              </span>
-            </div>
-
-            <button
-              type="button"
-              onClick={toggleTheme}
-              aria-label="Toggle color theme"
-              className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-slate-800 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
-            >
-              {theme === 'dark' ? (
-                <Sun className="h-3.5 w-3.5 text-amber-400" aria-hidden="true" />
-              ) : (
-                <Moon className="h-3.5 w-3.5 text-slate-600" aria-hidden="true" />
-              )}
-            </button>
+        {/* Right: Inline Project Pill + Theme Toggle + User Profile Dropdown */}
+        <div className="flex items-center gap-2.5">
+          <div
+            className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-700 shadow-2xs dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-200"
+            title="Active Google Cloud Project"
+          >
+            <FolderGit2
+              className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400"
+              aria-hidden="true"
+            />
+            <span className="text-[11px] text-slate-500 dark:text-slate-400">
+              Project:
+            </span>
+            <span className="font-mono font-semibold text-slate-900 dark:text-white">
+              {projectId}
+            </span>
+            <span className="rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-semibold text-blue-700 dark:bg-blue-950 dark:text-blue-300">
+              Cymbal
+            </span>
           </div>
 
-          {/* User Profile & Role Dropdown */}
+          <button
+            type="button"
+            onClick={toggleTheme}
+            aria-label="Toggle color theme"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-slate-800 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+          >
+            {theme === 'dark' ? (
+              <Sun className="h-3.5 w-3.5 text-amber-400" aria-hidden="true" />
+            ) : (
+              <Moon className="h-3.5 w-3.5 text-slate-600" aria-hidden="true" />
+            )}
+          </button>
+
+          {/* User Profile Dropdown (Sign Out only) */}
           <div className="relative">
             <button
               type="button"
               onClick={() => setIsUserMenuOpen((prev) => !prev)}
               aria-expanded={isUserMenuOpen}
-              aria-label="Toggle user profile and role menu"
-              className="flex items-center gap-1.5 text-xs text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"
+              aria-label="Toggle user profile menu"
+              className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 shadow-2xs transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
             >
               <div className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/60 dark:text-blue-300">
                 <User className="h-3 w-3" aria-hidden="true" />
@@ -157,14 +139,14 @@ export function Header({
                 {user?.email || 'Guest User'}
               </span>
               {isUserMenuOpen ? (
-                <ChevronUp className="h-3 w-3" aria-hidden="true" />
+                <ChevronUp className="h-3.5 w-3.5 text-slate-400" aria-hidden="true" />
               ) : (
-                <ChevronDown className="h-3 w-3" aria-hidden="true" />
+                <ChevronDown className="h-3.5 w-3.5 text-slate-400" aria-hidden="true" />
               )}
             </button>
 
             {isUserMenuOpen && (
-              <div className="absolute right-0 z-50 mt-2 w-72 rounded-xl border border-slate-200 bg-white p-3 shadow-lg dark:border-slate-700 dark:bg-slate-800">
+              <div className="absolute right-0 z-50 mt-2 w-64 rounded-xl border border-slate-200 bg-white p-3 shadow-lg dark:border-slate-700 dark:bg-slate-800">
                 <div className="border-b border-slate-100 pb-2.5 dark:border-slate-700">
                   <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">
                     Signed in as
@@ -177,32 +159,8 @@ export function Header({
                   </p>
                 </div>
 
-                <div className="mt-2.5">
-                  <label
-                    htmlFor="dev-role-select"
-                    className="block text-[11px] font-medium text-slate-600 dark:text-slate-300"
-                  >
-                    Simulate Cloud Identity Persona:
-                  </label>
-                  <select
-                    id="dev-role-select"
-                    value={activeDevRole}
-                    onChange={(e) => {
-                      onDevRoleChange(e.target.value);
-                      setIsUserMenuOpen(false);
-                    }}
-                    className="mt-1 block w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs text-slate-800 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-                  >
-                    {AVAILABLE_DEV_ROLES.map((role) => (
-                      <option key={role.value} value={role.value}>
-                        {role.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
                 {onSignOut && (
-                  <div className="mt-3 border-t border-slate-100 pt-2.5 dark:border-slate-700">
+                  <div className="mt-2 pt-1">
                     <button
                       type="button"
                       onClick={() => {
