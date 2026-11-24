@@ -9,14 +9,13 @@ from sqlalchemy import orm
 from app import auth
 from app import config
 from app import database
+from app import db_models
 from app import models
 from app.services import catalog
 from app.services import discovery
 from app.services import firestore as firestore_service
 
 router = fastapi.APIRouter(prefix="/api/v1/apps", tags=["catalog"])
-
-_ACCESS_REQUESTS_STORE: list[models.AccessRequestItem] = []
 
 
 def get_catalog_service(
@@ -139,13 +138,29 @@ def list_requestable_apps(
 )
 def list_access_requests(
     user: models.UserContext = fastapi.Depends(auth.resolve_current_user),
+    session: orm.Session = fastapi.Depends(database.get_db_session),
 ) -> list[models.AccessRequestItem]:
-    """Lists submitted app and AGY license access requests for the user."""
+    """Lists submitted app and AGY license access requests from PostgreSQL."""
     clean_email = (user.email or "").strip().lower()
+    rows = (
+        session.query(db_models.AccessRequestRecord)
+        .filter_by(user_email=clean_email)
+        .order_by(db_models.AccessRequestRecord.id.desc())
+        .all()
+    )
     return [
-        req
-        for req in _ACCESS_REQUESTS_STORE
-        if req.user_email.lower() == clean_email
+        models.AccessRequestItem(
+            request_id=row.request_id,
+            user_email=row.user_email,
+            request_type=row.request_type,
+            target_id=row.target_id,
+            target_name=row.target_name,
+            requested_group=row.requested_group,
+            justification=row.justification,
+            status=row.status,
+            created_at=row.created_at.isoformat() if row.created_at else "",
+        )
+        for row in rows
     ]
 
 
@@ -157,18 +172,36 @@ def list_access_requests(
 def create_access_request(
     payload: models.AccessRequestCreate,
     user: models.UserContext = fastapi.Depends(auth.resolve_current_user),
+    session: orm.Session = fastapi.Depends(database.get_db_session),
 ) -> models.AccessRequestItem:
-    """Submits a request for GE Application access or an AGY License."""
+    """Persists a request for GE Application access or an AGY License in PostgreSQL."""
     clean_email = (user.email or "employee@enterprise.example.com").strip().lower()
-    for existing in _ACCESS_REQUESTS_STORE:
-        if (
-            existing.user_email.lower() == clean_email
-            and existing.request_type == payload.request_type
-            and existing.target_id == payload.target_id
-        ):
-            return existing
+    existing = (
+        session.query(db_models.AccessRequestRecord)
+        .filter_by(
+            user_email=clean_email,
+            request_type=payload.request_type,
+            target_id=payload.target_id,
+        )
+        .one_or_none()
+    )
+    if existing is not None:
+        return models.AccessRequestItem(
+            request_id=existing.request_id,
+            user_email=existing.user_email,
+            request_type=existing.request_type,
+            target_id=existing.target_id,
+            target_name=existing.target_name,
+            requested_group=existing.requested_group,
+            justification=existing.justification,
+            status=existing.status,
+            created_at=(
+                existing.created_at.isoformat() if existing.created_at else ""
+            ),
+        )
 
-    item = models.AccessRequestItem(
+    now = datetime.datetime.now(datetime.timezone.utc)
+    record = db_models.AccessRequestRecord(
         request_id=f"req-{uuid.uuid4().hex[:8]}",
         user_email=clean_email,
         request_type=payload.request_type,
@@ -177,7 +210,18 @@ def create_access_request(
         requested_group=payload.requested_group,
         justification=payload.justification,
         status="PENDING_APPROVAL",
-        created_at=datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        created_at=now,
     )
-    _ACCESS_REQUESTS_STORE.append(item)
-    return item
+    session.add(record)
+    session.commit()
+    return models.AccessRequestItem(
+        request_id=record.request_id,
+        user_email=record.user_email,
+        request_type=record.request_type,
+        target_id=record.target_id,
+        target_name=record.target_name,
+        requested_group=record.requested_group,
+        justification=record.justification,
+        status=record.status,
+        created_at=now.isoformat(),
+    )

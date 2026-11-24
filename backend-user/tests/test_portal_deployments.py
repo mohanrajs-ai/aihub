@@ -9,6 +9,7 @@ from app import config
 from app import database
 from app import db_models
 from app import main
+from app import sync_job
 
 BACKEND_USER_ROOT = pathlib.Path(__file__).resolve().parents[1]
 PROJECT_ROOT = BACKEND_USER_ROOT.parent
@@ -88,6 +89,30 @@ def test_user_backend_isolated_database_and_schema(
     assert settings.database_url.endswith("/geapphub_user")
     assert database._FALLBACK_SQLITE_URL.endswith("geapphub_user.db")
     assert "provisioning_jobs" not in db_models.Base.metadata.tables
+    assert "access_requests" in db_models.Base.metadata.tables
+
+
+def test_sync_job_and_gcp_deployment_manifests() -> None:
+    """Verifies Cloud Run sync_job entrypoint, cloudbuild.user.yaml, and Terraform stack."""
+    result = sync_job.run_sync_job()
+    assert result["status"] == "completed"
+    assert result["trigger_source"] == "cloud_run_job"
+
+    cloudbuild_user = (PROJECT_ROOT / "cloudbuild.user.yaml").read_text(
+        encoding="utf-8"
+    )
+    assert "Dockerfile.user" in cloudbuild_user
+    assert "ge-user-portal-repo" in cloudbuild_user
+
+    tf_main = (
+        PROJECT_ROOT / "deploy" / "terraform" / "user-portal" / "main.tf"
+    ).read_text(encoding="utf-8")
+    assert "ge-user-portal-web" in tf_main
+    assert "ge-user-portal-sync-job" in tf_main
+    assert "geapphub-user-pg" in tf_main
+    assert "INTERNAL_MANAGED" in tf_main
+    assert "sa-user-portal-web" in tf_main
+    assert "sa-user-portal-sync" in tf_main
 
 
 def test_user_backend_codebase_excludes_admin_and_duplicate_files() -> None:

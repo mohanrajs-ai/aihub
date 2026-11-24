@@ -554,3 +554,44 @@ class SyncRunRecord(Base):
             ),
         }
 
+
+class AccessRequestRecord(Base):
+    """Persisted user request for GE Application access or an AGY License."""
+
+    __tablename__ = "access_requests"
+
+    id: orm.Mapped[int] = orm.mapped_column(
+        sqlalchemy.Integer, primary_key=True, autoincrement=True
+    )
+    request_id: orm.Mapped[str] = orm.mapped_column(
+        sqlalchemy.String(128), unique=True, index=True, nullable=False
+    )
+    user_email: orm.Mapped[str] = orm.mapped_column(
+        sqlalchemy.String(320), index=True, nullable=False
+    )
+    request_type: orm.Mapped[str] = orm.mapped_column(
+        sqlalchemy.String(64), default="APP_ACCESS", index=True, nullable=False
+    )
+    target_id: orm.Mapped[str] = orm.mapped_column(
+        sqlalchemy.String(255), index=True, nullable=False
+    )
+    target_name: orm.Mapped[str] = orm.mapped_column(
+        sqlalchemy.String(255), nullable=False
+    )
+    requested_group: orm.Mapped[str] = orm.mapped_column(
+        sqlalchemy.String(320), default="", nullable=False
+    )
+    justification: orm.Mapped[str] = orm.mapped_column(
+        sqlalchemy.Text, default="", nullable=False
+    )
+    status: orm.Mapped[str] = orm.mapped_column(
+        sqlalchemy.String(64),
+        default="PENDING_APPROVAL",
+        index=True,
+        nullable=False,
+    )
+    created_at: orm.Mapped[datetime.datetime] = orm.mapped_column(
+        sqlalchemy.DateTime(timezone=True), default=_utc_now, nullable=False
+    )
+
+

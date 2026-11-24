@@ -1,0 +1,91 @@
+# GCP Deployment Design: Gemini AI Hub — User Portal (`cymbal-app-514110`)
+
+## 1. Executive Summary & Design Decisions
+
+This document defines the production Google Cloud Platform (GCP) deployment architecture for the standalone **Gemini AI Hub — User Portal** (`frontend-user/` + `backend-user/` + `geapphub_user` database) in project **`cymbal-app-514110`** (`us-central1`).
+
+| Design Dimension | Selected Architecture Decision |
+| :--- | :--- |
+| **1. Compute & Packaging** | **Single Cloud Run v2 Service (`ge-user-portal-web`)** built from [`Dockerfile.user`](../Dockerfile.user), serving the compiled React 18 SPA (`frontend-user/dist`) and FastAPI backend (`backend-user/app/main.py`) on a single origin (`:8080`). |
+| **2. Ingress & Network Perimeter** | **Regional Internal Application Load Balancer (`INTERNAL_MANAGED`)** in `us-central1` with a private RFC 1918 VIP accessible exclusively over corporate VPN / Cloud Interconnect. Cloud Run ingress is locked to `INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER`. |
+| **3. DNS & TLS Termination** | **Cloud DNS Private Zone** (`aihub.internal.techmahindra.com`) + **Certificate Manager / Certificate Authority Service (CAS)** private TLS certificate bound to the Internal HTTPS Target Proxy. |
+| **4. User Authentication** | **In-App Google Cloud Identity / Microsoft 365 SAML SSO** (`/api/v1/auth/google/login` with `login_hint` email redirect to Google OAuth 2.0 + PKCE and HMAC-SHA256 session tokens). |
+| **5. Database (`geapphub_user`)** | **Cloud SQL for PostgreSQL 16 (`geapphub-user-pg`)** in `us-central1` configured with **Regional High Availability (`REGIONAL` 2-zone HA)**, `db-custom-2-8192` (2 vCPU, 8 GiB RAM), Point-in-Time Recovery (PITR), and **Private IP only** accessed via Cloud Run **Direct VPC Egress**. |
+| **6. Catalog & Group Sync** | **Cloud Run v2 Job (`ge-user-portal-sync-job`)** triggered every **15 minutes** by **Cloud Scheduler** (`*/15 * * * *`), executing `python -m app.sync_job` to sync Discovery Engine applications and Cloud Identity group memberships into `geapphub_user`. |
+| **7. Access & AGY License Requests** | Persisted in the **`access_requests` PostgreSQL table** (`AccessRequestRecord`) inside `geapphub_user` for Admin Console fulfillment and auditability. |
+| **8. Cloud Run Sizing & Scaling** | **Warm Production Profile**: `min_instance_count = 1` (zero cold start), `max_instance_count = 10`, `2 vCPU`, `1 GiB RAM`, `max_instance_request_concurrency = 80`. |
+| **9. IAM & Secret Management** | Two dedicated least-privilege service accounts (**`sa-user-portal-web`** and **`sa-user-portal-sync`**) with OAuth & DB secrets injected natively from **GCP Secret Manager**. |
+| **10. CI/CD & IaC Delivery** | **Cloud Build (`cloudbuild.user.yaml`)** -> **Artifact Registry (`us-central1-docker.pkg.dev`)** -> **Terraform Stack (`deploy/terraform/user-portal/`)**. |
+
+---
+
+## 2. End-to-End GCP Architecture Diagram
+
+```mermaid
+flowchart TB
+  subgraph CorpNet["Corporate Network / Tech-M VPN / Cloud Interconnect"]
+    UserBrowser["Employee Browser<br/>https://aihub.internal.techmahindra.com"]
+  end
+
+  subgraph GCP["GCP Project: cymbal-app-514110 (Region: us-central1)"]
+    subgraph VPC["Shared / Enterprise VPC (Private RFC 1918)"]
+      DNS["Cloud DNS Private Zone<br/>aihub.internal.techmahindra.com"]
+      ILB["Internal Application Load Balancer<br/>(INTERNAL_MANAGED HTTPS + Private CAS Cert)"]
+      NEG["Serverless NEG<br/>(us-central1)"]
+      EgressSubnet["Direct VPC Egress Subnet<br/>(10.128.10.0/24)"]
+      PSA["Private Services Access (PSA)<br/>Cloud SQL Private IP"]
+    end
+
+    subgraph CloudRunPlane["Cloud Run v2 (Serverless Compute)"]
+      WebSvc["Cloud Run Service: ge-user-portal-web<br/>Identity: sa-user-portal-web<br/>min=1, max=10, 2 vCPU / 1 GiB RAM<br/>Ingress: internal-and-cloud-load-balancing"]
+      SyncJob["Cloud Run Job: ge-user-portal-sync-job<br/>Identity: sa-user-portal-sync<br/>Command: python -m app.sync_job"]
+    end
+
+    Scheduler["Cloud Scheduler<br/>(Every 15 mins: */15 * * * *)"]
+
+    subgraph DataAndSecrets["Persistence & Secrets"]
+      CloudSQL[("Cloud SQL PostgreSQL 16<br/>Instance: geapphub-user-pg<br/>DB: geapphub_user<br/>REGIONAL HA (2 Zones) + PITR")]
+      SecretMgr["GCP Secret Manager<br/>- ge-user-db-url<br/>- ge-oauth-client-id<br/>- ge-oauth-client-secret<br/>- ge-user-session-secret"]
+    end
+
+    subgraph GoogleAPIs["Google Cloud & Workspace APIs"]
+      OAuth["Google Cloud Identity OAuth 2.0<br/>+ M365 Inbound SAML SSO"]
+      DiscEngine["Discovery Engine API<br/>(Gemini Enterprise Apps)"]
+      CloudIdentity["Cloud Identity Groups API<br/>(Transitive Memberships)"]
+    end
+  end
+
+  UserBrowser -->|"1. Resolve Private VIP"| DNS
+  UserBrowser -->|"2. HTTPS (443) over VPN"| ILB
+  ILB --> NEG --> WebSvc
+  WebSvc -.->|"3. OAuth 302 Redirect (login_hint)"| OAuth
+  WebSvc -->|"4. Direct VPC Egress (Private IP:5432)"| EgressSubnet --> PSA --> CloudSQL
+  SecretMgr -.->|"Mount Env Secrets"| WebSvc
+  SecretMgr -.->|"Mount Env Secrets"| SyncJob
+  Scheduler -->|"Trigger every 15m"| SyncJob
+  SyncJob -->|"5. Sync Apps & IAM"| DiscEngine
+  SyncJob -->|"6. Sync Group Memberships"| CloudIdentity
+  SyncJob -->|"7. Upsert Catalog & Groups"| EgressSubnet
+```
+
+---
+
+## 3. IAM Least-Privilege Matrix
+
+| Service Account | Attached Component | Granted IAM Roles | Purpose |
+| :--- | :--- | :--- | :--- |
+| `sa-user-portal-web@cymbal-app-514110.iam.gserviceaccount.com` | Cloud Run Service (`ge-user-portal-web`) | `roles/cloudsql.client`, `roles/secretmanager.secretAccessor`, `roles/logging.logWriter`, `roles/monitoring.metricWriter` | Serves User Portal UI & APIs, reads/writes `geapphub_user` DB (`users`, `access_requests`), reads OAuth secrets. Has **no** write access to Discovery Engine or Terraform state. |
+| `sa-user-portal-sync@cymbal-app-514110.iam.gserviceaccount.com` | Cloud Run Job (`ge-user-portal-sync-job`) + Cloud Scheduler | `roles/cloudsql.client`, `roles/secretmanager.secretAccessor`, `roles/discoveryengine.viewer`, `roles/cloudidentity.groupsViewer`, `roles/run.invoker` | Periodically queries Discovery Engine engines and Cloud Identity group memberships and updates `geapphub_user`. |
+
+---
+
+## 4. Database Schema (`geapphub_user`)
+
+Defined in [`backend-user/app/db_models.py`](../backend-user/app/db_models.py):
+1. `users` (`UserRecord`): Authenticated user profile, roles, and login timestamps.
+2. `cloud_identity_groups` (`CloudIdentityGroupRecord`): Synced Cloud Identity groups.
+3. `user_group_memberships` (`UserGroupMembershipRecord`): User-to-group membership mappings used for real-time app visibility filtering.
+4. `ge_applications` (`GEApplicationRecord`): Synced Gemini Enterprise applications (`engine_id`, `display_name`, `allowed_roles`, `iam_principals`, `launch_url`).
+5. `app_group_bindings` (`AppGroupBindingRecord`): Normalized engine-to-group bindings.
+6. `sync_runs` (`SyncRunRecord`): Execution audit log of the 15-minute `ge-user-portal-sync-job`.
+7. `access_requests` (`AccessRequestRecord`): User-submitted requests for **GE Application Access** (`APP_ACCESS`) and **AGY Licenses** (`AGY_LICENSE`).
