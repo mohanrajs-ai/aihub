@@ -1,10 +1,11 @@
 /**
  * Unit and integration tests for the Standalone User Portal codebase.
- * Verifies that the User Portal bundle renders only user sections and
- * completely excludes administrative governance, IaC, and sync trigger actions.
+ * Verifies that the User Portal bundle renders only user sections,
+ * shows no pre-populated accounts on the login page, redirects to Google Login
+ * with the entered email ID, and completely excludes admin panels.
  */
 
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as apiClient from '../api/client';
 import { App } from '../App';
@@ -30,7 +31,7 @@ const SAMPLE_APPS: CatalogApplication[] = [
 describe('Standalone User Portal Codebase', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
-    window.sessionStorage.setItem('ge_user_auth_token', 'test-user-session');
+    window.sessionStorage.clear();
     vi.spyOn(apiClient, 'fetchCurrentUser').mockResolvedValue({
       email: 'employee@mohanrajs.demo.altostrat.com',
       user_id: 'emp-001',
@@ -60,7 +61,44 @@ describe('Standalone User Portal Codebase', () => {
     vi.spyOn(apiClient, 'fetchMcpServers').mockResolvedValue([]);
   });
 
+  it('shows no user list on the login screen and redirects to Google login with the entered email', () => {
+    const assignMock = vi.fn();
+    Object.defineProperty(window, 'location', {
+      value: {
+        ...window.location,
+        origin: 'http://localhost:5173',
+        search: '',
+        pathname: '/',
+        assign: assignMock,
+      },
+      writable: true,
+    });
+
+    render(<App />);
+
+    // Verify no suggested user accounts are displayed on the login page
+    expect(screen.queryByText('Select Workspace Account')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/mohanraj@mohanrajs\.demo\.altostrat\.com/i),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/pradeepg@mohanrajs\.demo\.altostrat\.com/i),
+    ).not.toBeInTheDocument();
+
+    const emailInput = screen.getByLabelText('Work Email Address');
+    fireEvent.change(emailInput, {
+      target: { value: 'pradeepg@mohanrajs.demo.altostrat.com' },
+    });
+    fireEvent.click(screen.getByText('Continue to Google Sign-In'));
+
+    expect(assignMock).toHaveBeenCalledTimes(1);
+    expect(assignMock.mock.calls[0][0]).toContain(
+      '/api/v1/auth/google/login?email=pradeepg%40mohanrajs.demo.altostrat.com',
+    );
+  });
+
   it('renders all user modules and completely excludes admin governance and IaC panels', async () => {
+    window.sessionStorage.setItem('ge_user_auth_token', 'test-user-session');
     render(<App />);
 
     const titles = await screen.findAllByText('GE App Hub');

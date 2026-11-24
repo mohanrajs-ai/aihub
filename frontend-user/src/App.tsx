@@ -11,12 +11,10 @@ import {
   buildGoogleSsoLoginUrl,
   fetchAgents,
   fetchApps,
-  fetchAuthConfig,
   fetchCurrentUser,
   fetchMcpServers,
   fetchRegistrySkills,
   fetchSkills,
-  loginWithEmail,
   logoutUser,
 } from './api/client';
 import { AgentsView } from './components/AgentsView';
@@ -35,7 +33,6 @@ import {
   McpServerSummary,
   PortalSection,
   SkillRegistryItem,
-  SuggestedUser,
   UserContext,
 } from './types/catalog';
 
@@ -89,8 +86,6 @@ export function App(): React.ReactElement {
     }
     return window.sessionStorage.getItem(SESSION_TOKEN_KEY);
   });
-  const [suggestedUsers, setSuggestedUsers] = useState<SuggestedUser[]>([]);
-  const [ssoRedirectEnabled, setSsoRedirectEnabled] = useState<boolean>(false);
   const [authLoading, setAuthLoading] = useState<boolean>(false);
   const [authError, setAuthError] = useState<string | null>(() => {
     const params = new URLSearchParams(window.location.search);
@@ -123,17 +118,6 @@ export function App(): React.ReactElement {
       window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, []);
-
-  useEffect(() => {
-    if (!authToken) {
-      void fetchAuthConfig()
-        .then((cfg) => {
-          setSuggestedUsers(cfg.suggested_users);
-          setSsoRedirectEnabled(Boolean(cfg.sso_redirect_enabled));
-        })
-        .catch(() => setSuggestedUsers([]));
-    }
-  }, [authToken]);
 
   const loadCatalogData = useCallback(
     async (role: string, token: string) => {
@@ -198,25 +182,10 @@ export function App(): React.ReactElement {
     }
   }, [activeDevRole, authToken, loadCatalogData]);
 
-  async function handleLoginEmail(email: string): Promise<void> {
+  function handleLoginEmail(email: string): void {
     setAuthLoading(true);
     setAuthError(null);
-    if (ssoRedirectEnabled) {
-      window.location.assign(buildGoogleSsoLoginUrl(email));
-      return;
-    }
-    try {
-      const res = await loginWithEmail(email);
-      window.sessionStorage.setItem(SESSION_TOKEN_KEY, res.token);
-      setUser(res.user);
-      setAuthToken(res.token);
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : 'Unable to sign in';
-      setAuthError(message);
-    } finally {
-      setAuthLoading(false);
-    }
+    window.location.assign(buildGoogleSsoLoginUrl(email));
   }
 
   function handleSignOut(): void {
@@ -269,14 +238,11 @@ export function App(): React.ReactElement {
     <ThemeProvider>
       {!authToken ? (
         <LoginScreen
-          suggestedUsers={suggestedUsers}
           loading={authLoading}
           error={authError}
-          onLoginEmail={(email) => void handleLoginEmail(email)}
-          onLoginSsoPopup={
-            ssoRedirectEnabled
-              ? () => window.location.assign(buildGoogleSsoLoginUrl())
-              : undefined
+          onLoginEmail={(email) => handleLoginEmail(email)}
+          onLoginSsoPopup={() =>
+            window.location.assign(buildGoogleSsoLoginUrl())
           }
         />
       ) : (
