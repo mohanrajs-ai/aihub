@@ -40,8 +40,8 @@
   - [x] Maintain global auth, theme, and project context across both systems [fafb3ae]
 - [x] Task: Phase 3 Verification & Checkpoint (Refer to workflow.md) [fafb3ae]
 
-## Phase 4: Full System Verification, Regressions & Conductor Registry
-- [ ] Task: Run full frontend test suite (`npm test -- --run`) and production build (`npm run build`)
-- [ ] Task: Run backend test suite (`.venv/bin/pytest`) and resolve any regressions
-- [ ] Task: Update `conductor/product.md` and `conductor/tech-stack.md` to reflect the two-system architecture
-- [ ] Task: Phase 4 Verification & Checkpoint (Refer to workflow.md)
+## Phase 4: Full System Verification, Regressions & Conductor Registry [checkpoint: 402df9d]
+- [x] Task: Run full frontend test suite (`npm test -- --run`) and production build (`npm run build`) [402df9d]
+- [x] Task: Run backend test suite (`.venv/bin/pytest`) and resolve any regressions [402df9d]
+- [x] Task: Update `conductor/product.md` and `conductor/tech-stack.md` to reflect the two-system architecture [402df9d]
+- [x] Task: Phase 4 Verification & Checkpoint (Refer to workflow.md) [402df9d]
