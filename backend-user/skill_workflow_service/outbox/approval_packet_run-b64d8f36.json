@@ -1,0 +1,51 @@
+{
+  "run_id": "run-b64d8f36",
+  "skill_id": "m365-onedrive-artifact-finder",
+  "display_name": "m365-onedrive-artifact-finder",
+  "trigger_source": "GIT_CATALOG_COMMIT",
+  "commit_sha": null,
+  "source_engine": null,
+  "target_engines": [
+    "cymbal-retail-portal"
+  ],
+  "evaluation_scorecard": {
+    "composite_score": 78.8,
+    "passed": true,
+    "token_savings_pct": 40.0,
+    "discovery_tokens": 28,
+    "case_pass_rate": 100.0,
+    "rubric_scores": {
+      "R1_instruction_structure": 25.0,
+      "R2_connector_binding": 85.0,
+      "R3_subskill_trajectory": 95.0,
+      "R4_latency_sla": 95.0,
+      "R5_token_finops": 100.0,
+      "R6_zero_trust_parameterization": 90.0
+    },
+    "target_app_readiness": {
+      "cymbal-retail-portal": {
+        "ready": true,
+        "required_connectors": [],
+        "missing_connectors": [],
+        "status": "VALIDATED"
+      }
+    }
+  },
+  "infosec_verdict": {
+    "overall_risk": "LOW",
+    "passed": true,
+    "security_digest": "da2109080b019dbfd0ad7031edcf176dfcc5349300d4043ff2c4d1a4d9a0be6c",
+    "findings_count": 0
+  },
+  "status": "APPROVED",
+  "requested_at": "2026-11-10T17:56:50.570290+00:00",
+  "decision": {
+    "approved": true,
+    "approver_email": "automated-pipeline@cymbal.com",
+    "approved_at": "2026-11-10T17:56:50.570420+00:00",
+    "notes": "Approved by InfoSec reviewer.",
+    "target_engines": [
+      "cymbal-retail-portal"
+    ]
+  }
+}

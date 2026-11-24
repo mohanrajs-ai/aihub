@@ -1,0 +1,51 @@
+{
+  "run_id": "run-6c10576a",
+  "skill_id": "m365-teams-incident-swarm",
+  "display_name": "m365-teams-incident-swarm",
+  "trigger_source": "GIT_CATALOG_COMMIT",
+  "commit_sha": null,
+  "source_engine": null,
+  "target_engines": [
+    "cymbal-retail-portal"
+  ],
+  "evaluation_scorecard": {
+    "composite_score": 73.8,
+    "passed": true,
+    "token_savings_pct": 40.0,
+    "discovery_tokens": 32,
+    "case_pass_rate": 100.0,
+    "rubric_scores": {
+      "R1_instruction_structure": 0.0,
+      "R2_connector_binding": 85.0,
+      "R3_subskill_trajectory": 95.0,
+      "R4_latency_sla": 95.0,
+      "R5_token_finops": 100.0,
+      "R6_zero_trust_parameterization": 90.0
+    },
+    "target_app_readiness": {
+      "cymbal-retail-portal": {
+        "ready": true,
+        "required_connectors": [],
+        "missing_connectors": [],
+        "status": "VALIDATED"
+      }
+    }
+  },
+  "infosec_verdict": {
+    "overall_risk": "LOW",
+    "passed": true,
+    "security_digest": "816c0f9c281f29d49c2015ec3c317543aa0a912410fde6194f4303d1c0920a65",
+    "findings_count": 0
+  },
+  "status": "APPROVED",
+  "requested_at": "2026-11-10T17:56:50.568878+00:00",
+  "decision": {
+    "approved": true,
+    "approver_email": "automated-pipeline@cymbal.com",
+    "approved_at": "2026-11-10T17:56:50.569021+00:00",
+    "notes": "Approved by InfoSec reviewer.",
+    "target_engines": [
+      "cymbal-retail-portal"
+    ]
+  }
+}

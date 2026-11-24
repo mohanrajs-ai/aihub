@@ -6,22 +6,22 @@ RUN npm ci
 COPY frontend-user/ ./
 RUN npm run build
 
-# Stage 2: Python FastAPI User Portal Runtime (Port 8080)
+# Stage 2: Python FastAPI Standalone User Portal Runtime (Port 8080)
 FROM python:3.12-slim AS runtime
 WORKDIR /workspace
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PYTHONPATH=/workspace/backend \
+    PYTHONPATH=/workspace/backend-user \
     PORT=8080
 
-COPY backend/requirements.txt ./backend/requirements.txt
-RUN pip install --no-cache-dir -r backend/requirements.txt
+COPY backend-user/requirements.txt ./backend-user/requirements.txt
+RUN pip install --no-cache-dir -r backend-user/requirements.txt
 
-COPY backend/ ./backend/
+COPY backend-user/ ./backend-user/
 COPY --from=frontend-user-builder /workspace/frontend-user/dist ./frontend-user/dist
 
 RUN useradd --create-home --shell /bin/bash appuser && chown -R appuser:appuser /workspace
 USER appuser
 
 EXPOSE 8080
-CMD ["uvicorn", "app.user_main:app", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]

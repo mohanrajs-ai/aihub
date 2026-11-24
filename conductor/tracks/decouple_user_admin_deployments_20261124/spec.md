@@ -6,11 +6,13 @@ Previously, the User Portal and Admin Console were logically segregated within a
 - **Independent Release Cadence**: Changes to the admin governance and provisioning studio should deploy without rebuilding or risk of disrupting the end-user application catalog.
 - **Network Perimeter Isolation**: The Admin Console deployment can be locked down behind restricted corporate networks, VPNs, and strict Identity-Aware Proxy (IAP) policies on separate ports/domains, while the User Portal is accessible organization-wide.
 
-This track physically decouples the frontend into two standalone codebases:
+This track physically decouples both the frontend and backend into four standalone codebases:
 1. **`frontend-user/`**: Dedicated Vite + React 18 + TS application for end-user app discovery, skill registry, agent directory, and MCP connectors.
-2. **`frontend-admin/`**: Dedicated Vite + React 18 + TS application for administrators to manage 6-stage skill governance, execute Terraform provisioning, and monitor live sync operations.
+2. **`backend-user/`**: Dedicated FastAPI application for the User Portal (`Port 8080`), physically excluding administrative Terraform provisioning, sync triggers, and InfoSec approval routes.
+3. **`frontend-admin/`**: Dedicated Vite + React 18 + TS application for administrators to manage 6-stage skill governance, execute Terraform provisioning, and monitor live sync operations.
+4. **`backend-admin/`**: Dedicated FastAPI application for the Admin Console (`Port 8082`), housing the 6-Stage Skill Governance Factory, Terraform Provisioning Studio, and Cloud Identity Sync services.
 
-Additionally, this track provides two independent container deployment manifests (`Dockerfile.user`, `Dockerfile.admin`) orchestrated via `docker-compose.yml`.
+Additionally, this track provides two independent container deployment manifests (`Dockerfile.user`, `Dockerfile.admin`) orchestrated via `docker-compose.yml` sharing a single PostgreSQL/SQLite database.
 
 ---
 

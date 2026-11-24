@@ -1,0 +1,102 @@
+{
+  "run_id": "run-5e85040a",
+  "skill_id": "service-desk-major-incident-bridge",
+  "current_stage": "FAILED",
+  "stage_status": {
+    "STAGE0_TRIGGER": "PASSED",
+    "STAGE1_EVAL_GENERATION": "IN_PROGRESS",
+    "STAGE2_EVAL_BENCHMARK": "NOT_STARTED",
+    "STAGE3_INFOSEC_REVIEW": "NOT_STARTED",
+    "STAGE4_MANUAL_APPROVAL": "NOT_STARTED",
+    "STAGE5_REGISTRY_PUBLISH": "NOT_STARTED",
+    "STAGE6_GE_APP_SHARE": "NOT_STARTED",
+    "COMPLETED": "NOT_STARTED",
+    "FAILED": "NOT_STARTED"
+  },
+  "trigger_event": {
+    "skill_id": "service-desk-major-incident-bridge",
+    "display_name": "service-desk-major-incident-bridge",
+    "description": "Composite M365 incident response skill that coordinates Microsoft Teams war-room chats, SharePoint SOP runbooks, OneDrive RCA artifacts, and Outlook executive status broadcasts for P1/P2 major incidents.",
+    "instruction": "# Service Desk Major Incident Bridge (Composite ServiceNow + M365 Skill)\n\n## Purpose\nThis composite parent skill orchestrates five atomic sub-skills across **ServiceNow ITSM & Knowledge**, **Microsoft Teams**, **SharePoint Online**, **OneDrive**, and **Outlook Email** to accelerate P1/P2 major incident response and executive communication:\n1. [`servicenow-itsm-ticket-triage`](../../subskills/servicenow-itsm-ticket-triage/SKILL.md) (`@1p-skill-manta-data-connector-skill-type-servicenow`) \u2014 Queries ServiceNow `incident` and `knowledge_base` tables for active P1/P2 tickets, known-error KB articles, and BAP incident actions (`create_incident`, `update_incident`, `add_comment_to_incident`).\n2. [`m365-teams-incident-swarm`](../../subskills/m365-teams-incident-swarm/SKILL.md) (`@1p-skill-manta-data-connector-skill-type-teams`) \u2014 Extracts live war-room decisions, root-cause hypotheses, and mitigation owners from Microsoft Teams channels.\n3. [`sharepoint-policy-lookup`](../../subskills/sharepoint-policy-lookup/SKILL.md) (`@1p-skill-manta-data-connector-skill-type-sharepoint`) \u2014 Retrieves official P1/P2 incident escalation SOPs, SLA matrices, and rollback checklists from SharePoint Online.\n4. [`m365-onedrive-artifact-finder`](../../subskills/m365-onedrive-artifact-finder/SKILL.md) (`@1p-skill-manta-data-connector-skill-type-onedrive`) \u2014 Locates live diagnostic spreadsheets, architecture diagrams, and draft RCA documents in OneDrive.\n5. [`m365-outlook-triage`](../../subskills/m365-outlook-triage/SKILL.md) (`@1p-skill-manta-data-connector-skill-type-outlook-email`) \u2014 Correlates inbound customer impact emails in Outlook and drafts an executive Incident Status Broadcast.\n\n## Orchestration Workflow\n### Step 0: ServiceNow Ticket & Known-Error KB Triage (`servicenow-itsm-ticket-triage`)\n- Search `@1p-skill-manta-data-connector-skill-type-servicenow` (`cymbal-sn-fed_incident`, `cymbal-sn-fed_catalog`) for active incident records (`INC*`, searching both `\"P0\"`, `\"P1\"`, and priority `\"1 - Critical\"`), affected Configuration Items, and known-error KB articles.\n\n### Step 1: War-Room Telemetry (`m365-teams-incident-swarm`)\n- Search `@1p-skill-manta-data-connector-skill-type-teams` for the active incident ID or service name to construct a chronological timeline and identify mitigation owners.\n\n### Step 2: Runbook & SLA Verification (`sharepoint-policy-lookup`)\n- Search `@1p-skill-manta-data-connector-skill-type-sharepoint` for the matching major incident SOP and SLA communication cadence.\n\n### Step 3: Diagnostic & RCA Artifact Discovery (`m365-onedrive-artifact-finder`)\n- Search `@1p-skill-manta-data-connector-skill-type-onedrive` for working post-mortem drafts, telemetry spreadsheets, or architecture diagrams related to the impacted service.\n\n### Step 4: Customer Impact & Executive SitRep (`m365-outlook-triage`)\n- Search `@1p-skill-manta-data-connector-skill-type-outlook-email` for affected customer threads and synthesize a structured **Major Incident SitRep**:\n  1. **Incident Summary & Severity** (Impact scope, start time, SLA timer)\n  2. **Teams War-Room Timeline & Active Mitigations** (Owners & next checkpoint)\n  3. **Applicable SharePoint Runbook & OneDrive RCA Artifacts** (With direct citations)\n  4. **Ready-to-Send Executive & Customer Outlook Broadcast**",
+    "manifest": {
+      "skill_id": "service-desk-major-incident-bridge",
+      "display_name": "Service Desk Major Incident Bridge (ServiceNow + Teams + SharePoint + OneDrive + Outlook)",
+      "version": "1.1.0",
+      "category": "composite_skill",
+      "entrypoint": "SKILL.md",
+      "sub_skills": [
+        {
+          "skill_id": "servicenow-itsm-ticket-triage",
+          "Order": 1,
+          "path": "../../subskills/servicenow-itsm-ticket-triage/SKILL.md",
+          "required_connectors": [
+            "cymbal-servicenow"
+          ]
+        },
+        {
+          "skill_id": "m365-teams-incident-swarm",
+          "Order": 2,
+          "path": "../../subskills/m365-teams-incident-swarm/SKILL.md",
+          "required_connectors": [
+            "m365-teams-connector"
+          ]
+        },
+        {
+          "skill_id": "sharepoint-policy-lookup",
+          "Order": 3,
+          "path": "../../subskills/sharepoint-policy-lookup/SKILL.md",
+          "required_connectors": [
+            "m365-sharepoint-connector"
+          ]
+        },
+        {
+          "skill_id": "m365-onedrive-artifact-finder",
+          "Order": 4,
+          "path": "../../subskills/m365-onedrive-artifact-finder/SKILL.md",
+          "required_connectors": [
+            "m365-onedrive-connector"
+          ]
+        },
+        {
+          "skill_id": "m365-outlook-triage",
+          "Order": 5,
+          "path": "../../subskills/m365-outlook-triage/SKILL.md",
+          "required_connectors": [
+            "m365-outlook-connector"
+          ]
+        }
+      ],
+      "governance": {
+        "requires_admin_approval": true,
+        "approver_group": "ge-platform-admins@mohanrajs.demo.altostrat.com",
+        "target_apps": [
+          "cymbal-service-desk-app",
+          "cymbal-dev-sandbox-app",
+          "cymbal-finance-app",
+          "cymbal-hr-app"
+        ]
+      }
+    },
+    "category": "composite_skills",
+    "file_path": "/Users/mohanrajs/aops/geapphub/skills_catalog/composite_skills/service-desk-major-incident-bridge",
+    "subfiles": {},
+    "trigger_source": "GIT_CATALOG_COMMIT",
+    "commit_sha": null,
+    "source_engine_id": null,
+    "target_engines": [
+      "cymbal-retail-portal"
+    ],
+    "iam_proposals": [],
+    "content_fingerprint": "f38d37b1ab5c15058501194222212d954645f421eb069d5980199ae0f4a7875c",
+    "created_at": "2026-11-10T17:56:50.403685+00:00"
+  },
+  "eval_suite": null,
+  "eval_result": null,
+  "infosec_verdict": null,
+  "approval_decision": null,
+  "publish_result": null,
+  "share_result": null,
+  "error_message": "5 validation errors for EvalCase\nexpected_sub_skills.0\n  Input should be a valid string [type=string_type, input_value={'skill_id': 'servicenow-...: ['cymbal-servicenow']}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.14/v/string_type\nexpected_sub_skills.1\n  Input should be a valid string [type=string_type, input_value={'skill_id': 'm365-teams-...'m365-teams-connector']}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.14/v/string_type\nexpected_sub_skills.2\n  Input should be a valid string [type=string_type, input_value={'skill_id': 'sharepoint-...-sharepoint-connector']}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.14/v/string_type\nexpected_sub_skills.3\n  Input should be a valid string [type=string_type, input_value={'skill_id': 'm365-onedri...65-onedrive-connector']}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.14/v/string_type\nexpected_sub_skills.4\n  Input should be a valid string [type=string_type, input_value={'skill_id': 'm365-outloo...365-outlook-connector']}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.14/v/string_type",
+  "created_at": "2026-11-10T17:56:50.561426+00:00",
+  "updated_at": "2026-11-10T17:56:50.561427+00:00"
+}
