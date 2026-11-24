@@ -27,7 +27,7 @@
 
 ---
 
-- [ ] **Track: Decouple User Portal and Admin Console into Separate Codebases and Independent Deployments**
+- [~] **Track: Decouple User Portal and Admin Console into Separate Codebases and Independent Deployments**
   *Link: [./tracks/decouple_user_admin_deployments_20261124/index.md](./tracks/decouple_user_admin_deployments_20261124/index.md)*
 
 
