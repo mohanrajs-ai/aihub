@@ -31,7 +31,7 @@ def _is_user_authorized(
         True if the user may view and launch the application.
     """
     normalized_user = {role.strip().lower() for role in user_roles}
-    if "admin" in normalized_user:
+    if "__all_apps__" in normalized_user:
         return True
 
     if iam_principals:
@@ -59,6 +59,9 @@ def _is_user_authorized(
             if role in normalized_iam or f"group:{role}" in normalized_iam:
                 return True
         return False
+
+    if "admin" in normalized_user:
+        return True
 
     normalized_allowed = {role.strip().lower() for role in allowed_roles}
     if not normalized_allowed or "*" in normalized_allowed:

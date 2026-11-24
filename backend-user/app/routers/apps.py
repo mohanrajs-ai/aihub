@@ -111,7 +111,7 @@ def list_requestable_apps(
     )
     authorized_ids = {item.engine_id for item in user_visible}
     all_apps = catalog_service.list_visible_applications(
-        user_roles=["admin"],
+        user_roles=["__all_apps__"],
         user_email="admin@mohanrajs.demo.altostrat.com",
     )
     ungranted_apps = [
