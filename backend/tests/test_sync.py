@@ -164,8 +164,14 @@ def test_sync_and_groups_api_endpoints(monkeypatch) -> None:
         assert status_payload["total_groups"] >= 2
         assert status_payload["last_run"]["status"] == "completed"
 
-        # Trigger manual sync
-        sync_resp = client.post("/api/v1/sync")
+        # Trigger manual sync (requires admin role)
+        sync_resp = client.post(
+            "/api/v1/sync",
+            headers={
+                "X-Dev-User-Email": "admin@mohanrajs.altostrat.com",
+                "X-Dev-User-Role": "admin",
+            },
+        )
         assert sync_resp.status_code == 200
         sync_payload = sync_resp.json()
         assert sync_payload["status"] == "completed"

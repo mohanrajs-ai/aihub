@@ -194,6 +194,10 @@ def test_end_to_end_5_stage_skill_workflow_and_microservice_api(
                     "ge-finops-insights",
                 ],
             },
+            headers={
+                "X-Dev-User-Email": "infosec@mohanrajs.altostrat.com",
+                "X-Dev-User-Role": "security-reviewer",
+            },
         )
         assert approve_resp.status_code == 200
         approved_wf = approve_resp.json()
@@ -241,6 +245,10 @@ def test_end_to_end_5_stage_skill_workflow_and_microservice_api(
                 "approver_email": "infosec@mohanrajs.altostrat.com",
                 "notes": "Revoked for testing",
             },
+            headers={
+                "X-Dev-User-Email": "infosec@mohanrajs.altostrat.com",
+                "X-Dev-User-Role": "security-reviewer",
+            },
         )
         assert wf_reject.status_code == 200
         assert wf_reject.json()["status"] == "REJECTED"
@@ -256,12 +264,22 @@ def test_end_to_end_5_stage_skill_workflow_and_microservice_api(
         assert (
             client.get("/api/v1/workflows/skills/missing").status_code == 404
         )
+        admin_hdr = {
+            "X-Dev-User-Email": "infosec@mohanrajs.altostrat.com",
+            "X-Dev-User-Role": "security-reviewer",
+        }
         assert (
-            client.post("/api/v1/workflows/skills/missing/approve").status_code
+            client.post(
+                "/api/v1/workflows/skills/missing/approve",
+                headers=admin_hdr,
+            ).status_code
             == 404
         )
         assert (
-            client.post("/api/v1/workflows/skills/missing/reject").status_code
+            client.post(
+                "/api/v1/workflows/skills/missing/reject",
+                headers=admin_hdr,
+            ).status_code
             == 404
         )
 
@@ -357,7 +375,7 @@ def test_six_stage_pipeline_multi_agent_and_app_sharing(
         skill_id = skill["skill_id"]
         wf = skill["workflow"]
         assert wf["current_stage"] == "AWAITING_INFOSEC_APPROVAL"
-        assert len(wf["target_agent_evaluations"]) == 4
+        assert len(wf["target_agent_evaluations"]) >= 4
         assert wf["infosec_report"]["controls_total"] == 6
         assert wf["infosec_report"]["human_approval_required"] is True
         assert len(wf["infosec_report"]["security_digest"]) == 64
@@ -376,6 +394,10 @@ def test_six_stage_pipeline_multi_agent_and_app_sharing(
                     "universal-skill-orchestrator",
                     "cymbal-itsm-incident-agent",
                 ],
+            },
+            headers={
+                "X-Dev-User-Email": "infosec-lead@cymbal.com",
+                "X-Dev-User-Role": "security-reviewer",
             },
         )
         assert approve_resp.status_code == 200

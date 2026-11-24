@@ -3,6 +3,7 @@
 import fastapi
 from sqlalchemy import orm
 
+from app import auth
 from app import config
 from app import database
 from app import models
@@ -19,6 +20,7 @@ def get_sync_service() -> sync.CatalogSyncService:
 
 @router.post("", response_model=models.SyncRunSummary)
 def trigger_sync(
+    _admin: models.UserContext = fastapi.Depends(auth.require_admin),
     session: orm.Session = fastapi.Depends(database.get_db_session),
     sync_service: sync.CatalogSyncService = fastapi.Depends(get_sync_service),
 ) -> models.SyncRunSummary:

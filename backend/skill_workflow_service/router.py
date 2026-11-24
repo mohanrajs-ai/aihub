@@ -90,7 +90,7 @@ def get_skill_workflow(
 def approve_skill_workflow(
     skill_id: str,
     payload: models.SkillApprovalRequest | None = None,
-    user: models.UserContext = fastapi.Depends(auth.resolve_current_user),
+    user: models.UserContext = fastapi.Depends(auth.require_admin),
     session: orm.Session = fastapi.Depends(database.get_db_session),
 ) -> models.SkillWorkflowItem:
     """Approves Stage 3 InfoSec review, publishes to Registry & shares to GE."""
@@ -125,7 +125,7 @@ def approve_skill_workflow(
 def reject_skill_workflow(
     skill_id: str,
     payload: models.SkillApprovalRequest | None = None,
-    user: models.UserContext = fastapi.Depends(auth.resolve_current_user),
+    user: models.UserContext = fastapi.Depends(auth.require_admin),
     session: orm.Session = fastapi.Depends(database.get_db_session),
 ) -> models.SkillWorkflowItem:
     """Rejects Stage 3 InfoSec review and records reviewer notes."""

@@ -651,6 +651,36 @@ def resolve_current_user(request: fastapi.Request) -> models.UserContext:
     )
 
 
+ADMIN_ROLES: set[str] = {
+    "admin",
+    "it-admin",
+    "security-reviewer",
+    "platform-lead",
+    "cloud-architect",
+}
+
+
+def is_admin_user(user: models.UserContext) -> bool:
+    """Checks whether the user context has administrative privileges.
+
+    Args:
+        user: Resolved UserContext instance.
+
+    Returns:
+        True if the user holds an administrative role or admin email.
+    """
+    roles = {r.lower() for r in user.roles}
+    if bool(roles.intersection(ADMIN_ROLES)):
+        return True
+    clean_email = (user.email or "").strip().lower()
+    if clean_email.startswith("admin@"):
+        return True
+    settings = config.get_settings()
+    if clean_email in settings.admin_users:
+        return True
+    return False
+
+
 def require_admin(
     user: models.UserContext = fastapi.Depends(resolve_current_user),
 ) -> models.UserContext:
@@ -663,10 +693,9 @@ def require_admin(
         Authenticated admin UserContext.
 
     Raises:
-        fastapi.HTTPException: 403 if the user does not hold the admin role.
+        fastapi.HTTPException: 403 if the user does not hold an admin role.
     """
-    is_admin_email = user.email.lower().startswith("admin@")
-    if "admin" not in user.roles and not is_admin_email:
+    if not is_admin_user(user):
         raise fastapi.HTTPException(
             status_code=fastapi.status.HTTP_403_FORBIDDEN,
             detail="Administrator role required for this operation.",
