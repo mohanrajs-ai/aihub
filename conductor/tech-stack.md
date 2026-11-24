@@ -1,8 +1,8 @@
 # Technology Stack: Gemini Enterprise AppHub Monorepo (`geapphub`)
 
 ## 1. Monorepo Directory Architecture
-- **`frontend/`**: React 18 + TypeScript + Vite + Tailwind CSS single-portal RBAC UI (App Catalog, User AI Skill Hub, Admin 6-Stage Skill Governance Studio, and Admin Terraform Provisioning Studio).
-- **`backend/app/`**: FastAPI Control Plane API (Port 8080) for Live GCP Engine/DataStore Discovery, Cloud Identity Group RBAC, Terraform Provisioning Orchestrator, and GE Pinned Agent Publisher.
+- **`frontend/`**: React 18 + TypeScript + Vite + Tailwind CSS dual-system RBAC architecture with top-level system router (`App.tsx`), dedicated `UserPortal`, `AdminConsole`, and Header portal switcher with role-gated access guards.
+- **`backend/app/`**: FastAPI Control Plane API (Port 8080) for Live GCP Engine/DataStore Discovery, Cloud Identity Group RBAC, Terraform Provisioning Orchestrator, GE Pinned Agent Publisher, and admin authorization guardrails (`require_admin`, `is_admin_user`).
 - **`backend/skill_workflow_service/`**: FastAPI 6-Stage AI Skill Governance Factory (Port 8081 / Mounted) powered by Google ADK and `GeminiEnterpriseDiscoveryLlm` (`:streamAssist`).
 - **`agents/universal_skill_orchestrator/`**: Deployable Google ADK Agent package managed via **`agents-cli` (`google-agents-cli ~= 1.4.1`)** (`agents-cli scaffold`, `agents-cli run`, `agents-cli eval run`, `agents-cli deploy --deployment-target agent_runtime`, and `agents-cli publish gemini-enterprise`) with dynamic `InstructionProvider`, `load_skill_bundle`, `execute_subskill`, and per-user OAuth token passthrough (`--authorization-id`).
 - **`infra/`**: Terraform 1.5+ (`google` / `google-beta` ~> 5.0) & idempotent Discovery Engine REST provisioning stacks (`01-identity-foundation`, `02-ge-app-instance`, `03-m365-connectors`) plus bash verification suite (`infra/tests/run_tests.sh`).
