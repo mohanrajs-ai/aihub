@@ -47,10 +47,78 @@ describe('Standalone User Portal Codebase', () => {
       groups: ['hr-app-users@mohanrajs.demo.altostrat.com'],
     });
     vi.spyOn(apiClient, 'fetchSkills').mockResolvedValue({
-      items: [],
-      total: 0,
+      items: [
+        {
+          skill_id: 'ge-enterprise-search:daily-brief',
+          resource_name: 'projects/p/locations/global/engines/ge-enterprise-search/skills/daily-brief',
+          engine_id: 'ge-enterprise-search',
+          app_display_name: 'Gemini Enterprise Knowledge Search',
+          display_name: 'daily-brief',
+          description: 'Generates daily executive summary.',
+          instruction: '# SKILL.md\nDaily brief instructions.',
+          gcs_uri: '',
+          owner_email: 'owner@example.com',
+          state: 'ENABLED',
+          sharing_scope: 'ORGANIZATION',
+          sharing_state: 'SHARED',
+          has_active_iam_proposals: false,
+          review_status: 'APPROVED',
+          iam_proposals: [],
+          shared_principals: [],
+          subfiles: [],
+          create_time: '',
+          update_time: '',
+          workflow: {
+            workflow_id: 'wf-1',
+            skill_id: 'ge-enterprise-search:daily-brief',
+            engine_id: 'ge-enterprise-search',
+            skill_display_name: 'daily-brief',
+            owner_email: 'owner@example.com',
+            current_stage: 'PUBLISHED',
+            status: 'COMPLETED',
+            eval_score: 96,
+            eval_status: 'PASSED',
+            eval_report: {},
+            infosec_risk_level: 'LOW',
+            infosec_status: 'PASSED',
+            infosec_report: {},
+            approval_status: 'APPROVED',
+            approved_by: 'infosec@example.com',
+            approval_notes: '',
+            registry_id: 'reg-1',
+            shared_in_ge: true,
+            shared_principals: [],
+            required_connectors: [
+              { connector_id: 'jira-cloud', display_name: 'Atlassian Jira' },
+            ],
+            target_engines: ['ge-enterprise-search'],
+          },
+        },
+        {
+          skill_id: 'unauthorized-app:secret-skill',
+          resource_name: 'projects/p/locations/global/engines/unauthorized-app/skills/secret-skill',
+          engine_id: 'unauthorized-app',
+          app_display_name: 'Unauthorized App',
+          display_name: 'secret-skill',
+          description: 'Should not appear because user has no access to unauthorized-app.',
+          instruction: '# SKILL.md\nSecret',
+          gcs_uri: '',
+          owner_email: 'owner@example.com',
+          state: 'ENABLED',
+          sharing_scope: 'RESTRICTED',
+          sharing_state: 'SHARED',
+          has_active_iam_proposals: false,
+          review_status: 'APPROVED',
+          iam_proposals: [],
+          shared_principals: [],
+          subfiles: [],
+          create_time: '',
+          update_time: '',
+        },
+      ],
+      total: 2,
       pending_review_count: 0,
-      approved_count: 0,
+      approved_count: 2,
       draft_count: 0,
     });
     vi.spyOn(apiClient, 'fetchRegistrySkills').mockResolvedValue({
@@ -141,6 +209,23 @@ describe('Standalone User Portal Codebase', () => {
     expect(screen.getByText('Sign Out')).toBeInTheDocument();
     expect(
       screen.queryByText(/Simulate Cloud Identity Persona/i),
+    ).not.toBeInTheDocument();
+
+    // Navigate to Skill Registry and verify app filter & 4 skill fields
+    fireEvent.click(screen.getByLabelText('Skill Registry'));
+    expect(await screen.findByText('Skill ID')).toBeInTheDocument();
+    expect(screen.getByText('Slash Command')).toBeInTheDocument();
+    expect(screen.getByText('Required Connector')).toBeInTheDocument();
+    expect(screen.getByText('SKILL.md')).toBeInTheDocument();
+    expect(
+      screen.getByText('ge-enterprise-search:daily-brief'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('/daily-brief')).toBeInTheDocument();
+    expect(screen.getByText('Atlassian Jira')).toBeInTheDocument();
+    expect(screen.getByText('View SKILL.md')).toBeInTheDocument();
+    // Skill belonging to an app the user does not have access to is hidden
+    expect(
+      screen.queryByText('unauthorized-app:secret-skill'),
     ).not.toBeInTheDocument();
   });
 });
