@@ -17,7 +17,7 @@ LOGGER = logging.getLogger(__name__)
 _ENGINE_CACHE: dict[str, sqlalchemy.Engine] = {}
 _FALLBACK_SQLITE_URL = (
     "sqlite:///"
-    + str(pathlib.Path(__file__).resolve().parents[2] / "geapphub_local.db")
+    + str(pathlib.Path(__file__).resolve().parents[1] / "geapphub_admin.db")
 )
 
 

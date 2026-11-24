@@ -1,20 +1,20 @@
 # Gemini Enterprise AI Hub Portal (`aihub`)
 
-Physically decoupled User Portal (`frontend-user/` + `backend-user/`) and Admin Console (`frontend-admin/` + `backend-admin/`) codebases with two independent FastAPI container deployments (`Dockerfile.user` on port `8080`, `Dockerfile.admin` on port `8082`) sharing a single PostgreSQL / SQLite database.
+Physically decoupled User Portal (`frontend-user/` + `backend-user/` + `geapphub_user` DB) and Admin Console (`frontend-admin/` + `backend-admin/` + `geapphub_admin` DB) codebases with two independent FastAPI container deployments (`Dockerfile.user` on port `8080`, `Dockerfile.admin` on port `8082`) and two separate PostgreSQL databases (`postgres-user` on port `5432`, `postgres-admin` on port `5433`).
 
 ## Repository Structure
 
 ```text
 aihub/
 ├── frontend-user/                # Standalone User Portal SPA (React 18 + TS + Vite, Port 5173)
-├── backend-user/                 # Standalone User Portal FastAPI Backend (Port 8080, zero admin code)
+├── backend-user/                 # Standalone User Portal FastAPI Backend (Port 8080) & geapphub_user.db
 ├── frontend-admin/               # Standalone Admin Console SPA (React 18 + TS + Vite, Port 5174)
-├── backend-admin/                # Standalone Admin Console FastAPI Backend (Port 8082, Governance + IaC + Sync)
+├── backend-admin/                # Standalone Admin Console FastAPI Backend (Port 8082) & geapphub_admin.db
 ├── docs/                         # Architecture & Governance One-Pagers
 ├── conductor/                    # Project Context, Style Guides & Tracks Registry
 ├── Dockerfile.user               # Standalone User Portal Container Build (frontend-user + backend-user, Port 8080)
 ├── Dockerfile.admin              # Standalone Admin Console Container Build (frontend-admin + backend-admin, Port 8082)
-└── docker-compose.yml            # Multi-Container Deployment (postgres, user-portal, admin-console)
+└── docker-compose.yml            # Multi-Container Deployment (postgres-user, postgres-admin, user-portal, admin-console)
 ```
 
 ## Related Sibling Repositories (`/Users/mohanrajs/aops/`)
@@ -26,12 +26,12 @@ aihub/
 
 ## Quick Start
 
-### 1. Start the Standalone Backend Services
+### 1. Start the Standalone Backend Services (Each with its Own Database)
 ```bash
-# User Portal Backend (Port 8080)
+# User Portal Backend (Port 8080 -> connects to geapphub_user / backend-user/geapphub_user.db)
 cd backend-user && ../.venv/bin/uvicorn app.main:app --reload --port 8080
 
-# Admin Console Backend (Port 8082)
+# Admin Console Backend (Port 8082 -> connects to geapphub_admin / backend-admin/geapphub_admin.db)
 cd backend-admin && ../.venv/bin/uvicorn app.main:app --reload --port 8082
 ```
 
@@ -44,11 +44,11 @@ cd frontend-user && npm run dev -- --host 0.0.0.0 --port 5173
 cd frontend-admin && npm run dev -- --host 0.0.0.0 --port 5174
 ```
 
-### 3. Deploy Independent Containers via Docker Compose
+### 3. Deploy Independent Containers & Databases via Docker Compose
 ```bash
 docker compose up --build -d
-# User Portal:   http://localhost:8080
-# Admin Console: http://localhost:8082
+# User Portal:    http://localhost:8080 (Postgres: localhost:5432 / geapphub_user)
+# Admin Console:  http://localhost:8082 (Postgres: localhost:5433 / geapphub_admin)
 ```
 
 ### 4. Run Automated Tests

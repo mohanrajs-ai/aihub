@@ -1,11 +1,13 @@
-"""Unit tests for standalone User Portal backend (`backend-user`)."""
+"""Unit tests for standalone User Portal backend and database (`backend-user`)."""
 
 import pathlib
 
 import pytest
 from fastapi import testclient
 
+from app import config
 from app import database
+from app import db_models
 from app import main
 
 BACKEND_USER_ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -34,13 +36,23 @@ def test_user_backend_serves_user_routes_and_omits_admin_routes() -> None:
     apps_res = client.get("/api/v1/apps")
     assert apps_res.status_code == 200
 
-    # Admin provisioning, sync, and skill approval endpoints do not exist in backend-user
     assert client.get("/api/v1/admin/provisioning/jobs").status_code == 404
     assert client.post("/api/v1/sync").status_code == 404
     assert (
         client.post("/api/v1/workflows/skills/test-skill/approve").status_code
         == 404
     )
+
+
+def test_user_backend_isolated_database_and_schema(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Verifies backend-user uses geapphub_user DB and omits provisioning_jobs."""
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    settings = config.get_settings()
+    assert settings.database_url.endswith("/geapphub_user")
+    assert database._FALLBACK_SQLITE_URL.endswith("geapphub_user.db")
+    assert "provisioning_jobs" not in db_models.Base.metadata.tables
 
 
 def test_user_backend_codebase_excludes_admin_files() -> None:

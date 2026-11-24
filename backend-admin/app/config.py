@@ -26,7 +26,7 @@ class Settings(pydantic.BaseModel):
     google_client_id: str = ""
     google_client_secret: str = ""
     session_secret: str = "ge-apphub-session-secret-key"
-    database_url: str = "postgresql+psycopg://localhost:5432/geapphub"
+    database_url: str = "postgresql+psycopg://localhost:5433/geapphub_admin"
     sync_enabled: bool = True
     sync_interval_seconds: int = 900
     sync_on_startup: bool = True
@@ -107,7 +107,7 @@ def get_settings() -> Settings:
             "SESSION_SECRET", "ge-apphub-session-secret-key"
         ),
         database_url=os.environ.get(
-            "DATABASE_URL", "postgresql+psycopg://localhost:5432/geapphub"
+            "DATABASE_URL", "postgresql+psycopg://localhost:5433/geapphub_admin"
         ).strip(),
         sync_enabled=_parse_bool(
             os.environ.get("SYNC_ENABLED"), default=True

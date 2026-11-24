@@ -1,18 +1,36 @@
 services:
-  postgres:
+  postgres-user:
     image: postgres:16-alpine
-    container_name: geapphub-postgres
+    container_name: geapphub-postgres-user
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      POSTGRES_DB: ${POSTGRES_DB:-geapphub}
+      POSTGRES_DB: ${POSTGRES_USER_DB:-geapphub_user}
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "${POSTGRES_USER_PORT:-5432}:5432"
     volumes:
-      - geapphub_pgdata:/var/lib/postgresql/data
+      - geapphub_user_pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-geapphub}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_USER_DB:-geapphub_user}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  postgres-admin:
+    image: postgres:16-alpine
+    container_name: geapphub-postgres-admin
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_ADMIN_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_ADMIN_DB:-geapphub_admin}
+    ports:
+      - "${POSTGRES_ADMIN_PORT:-5433}:5432"
+    volumes:
+      - geapphub_admin_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_ADMIN_USER:-postgres} -d ${POSTGRES_ADMIN_DB:-geapphub_admin}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -24,10 +42,10 @@ services:
     container_name: geapphub-user-portal
     restart: unless-stopped
     depends_on:
-      postgres:
+      postgres-user:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-geapphub}
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres-user:5432/${POSTGRES_USER_DB:-geapphub_user}
       GCP_PROJECT_ID: ${GCP_PROJECT_ID:-cymbal-app-514110}
       USE_MOCK_DATA: ${USE_MOCK_DATA:-false}
       SYNC_ENABLED: "false"
@@ -41,10 +59,10 @@ services:
     container_name: geapphub-admin-console
     restart: unless-stopped
     depends_on:
-      postgres:
+      postgres-admin:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-geapphub}
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_ADMIN_USER:-postgres}:${POSTGRES_ADMIN_PASSWORD:-postgres}@postgres-admin:5432/${POSTGRES_ADMIN_DB:-geapphub_admin}
       GCP_PROJECT_ID: ${GCP_PROJECT_ID:-cymbal-app-514110}
       USE_MOCK_DATA: ${USE_MOCK_DATA:-false}
       SYNC_ENABLED: ${SYNC_ENABLED:-true}
@@ -52,4 +70,5 @@ services:
       - "${ADMIN_CONSOLE_PORT:-8082}:8082"
 
 volumes:
-  geapphub_pgdata:
+  geapphub_user_pgdata:
+  geapphub_admin_pgdata:

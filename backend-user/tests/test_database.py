@@ -15,7 +15,7 @@ def test_database_and_sync_settings_defaults(monkeypatch) -> None:
     settings = config.get_settings()
     assert (
         settings.database_url
-        == "postgresql+psycopg://localhost:5432/geapphub"
+        == "postgresql+psycopg://localhost:5432/geapphub_user"
     )
     assert settings.sync_enabled is True
     assert settings.sync_interval_seconds == 900
