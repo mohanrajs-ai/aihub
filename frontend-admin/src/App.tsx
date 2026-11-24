@@ -336,9 +336,9 @@ export function App(): React.ReactElement {
             onSignOut={handleSignOut}
           />
 
-          <main className="mx-auto max-w-[1440px] px-4 py-6 sm:px-6 lg:px-8">
+          <div className="w-full">
             {!isAdmin ? (
-              <div className="mx-auto max-w-2xl py-12">
+              <div className="mx-auto max-w-2xl px-4 py-12">
                 <div className="overflow-hidden rounded-2xl border border-red-200 bg-white shadow-lg dark:border-red-900/60 dark:bg-slate-900">
                   <div className="border-b border-red-100 bg-red-50/80 px-6 py-5 dark:border-red-950 dark:bg-red-950/40">
                     <div className="flex items-center gap-3">
@@ -375,7 +375,7 @@ export function App(): React.ReactElement {
                 </div>
               </div>
             ) : (
-              <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+              <div className="flex min-h-[calc(100vh-61px)] flex-col lg:flex-row">
                 <AdminSidebar
                   activeSection={activeSection}
                   onSelectSection={setActiveSection}
@@ -383,7 +383,8 @@ export function App(): React.ReactElement {
                   skillsCount={skills.length}
                 />
 
-                <div className="min-w-0 flex-1">
+                <main className="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-8">
+                  <div className="mx-auto max-w-[1400px]">
                   {activeSection === 'governance' && (
                     <SkillsSection
                       mode="admin-governance"
@@ -515,10 +516,11 @@ export function App(): React.ReactElement {
                       </div>
                     </div>
                   )}
-                </div>
+                  </div>
+                </main>
               </div>
             )}
-          </main>
+          </div>
         </div>
       )}
     </ThemeProvider>

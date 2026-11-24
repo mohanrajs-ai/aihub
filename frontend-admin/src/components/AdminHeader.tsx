@@ -85,7 +85,7 @@ export function AdminHeader({
 
   return (
     <header className="sticky top-0 z-30 border-b border-indigo-200/80 bg-white/95 backdrop-blur-md dark:border-indigo-950 dark:bg-slate-900/95">
-      <div className="mx-auto flex max-w-[1440px] flex-wrap items-center justify-between gap-3 px-4 py-2.5 sm:px-6 lg:px-8">
+      <div className="flex w-full flex-wrap items-center justify-between gap-3 px-4 py-2.5 sm:px-6">
         {/* Left: Brand Logo + Admin Console Title */}
         <div className="flex items-center gap-2.5">
           <BrandLogo logoUrl={logoUrl} logoAlt={logoAlt} />

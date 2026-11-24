@@ -254,18 +254,18 @@ export function App(): React.ReactElement {
             onSignOut={handleSignOut}
           />
 
-          <main className="mx-auto max-w-[1440px] px-4 py-6 sm:px-6 lg:px-8">
-            <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
-              <Sidebar
-                activeSection={activeSection}
-                onSelectSection={setActiveSection}
-                appsCount={apps.length}
-                skillsCount={skills.length}
-                agentsCount={agents.length || 1}
-                mcpCount={mcpServers.length || 7}
-              />
+          <div className="flex min-h-[calc(100vh-61px)] flex-col lg:flex-row">
+            <Sidebar
+              activeSection={activeSection}
+              onSelectSection={setActiveSection}
+              appsCount={apps.length}
+              skillsCount={skills.length}
+              agentsCount={agents.length || 1}
+              mcpCount={mcpServers.length || 7}
+            />
 
-              <div className="min-w-0 flex-1">
+            <main className="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-8">
+              <div className="mx-auto max-w-[1400px]">
                 {error && (
                   <div
                     role="alert"
@@ -363,8 +363,8 @@ export function App(): React.ReactElement {
                   <McpServersView servers={mcpServers} loading={loading} />
                 )}
               </div>
-            </div>
-          </main>
+            </main>
+          </div>
         </div>
       )}
     </ThemeProvider>

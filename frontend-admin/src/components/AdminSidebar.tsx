@@ -104,11 +104,12 @@ export function AdminSidebar({
   return (
     <aside
       aria-label="Admin Navigation"
-      className={`shrink-0 transition-all duration-200 ${
+      className={`shrink-0 border-b border-indigo-200/80 bg-white transition-all duration-200 dark:border-indigo-950 dark:bg-slate-900 lg:min-h-[calc(100vh-61px)] lg:border-b-0 lg:border-r ${
         isCollapsed ? 'w-full lg:w-16' : 'w-full lg:w-64'
       }`}
     >
-      <div className="sticky top-20 overflow-hidden rounded-xl border border-indigo-200/80 bg-white shadow-xs dark:border-indigo-950 dark:bg-slate-900">
+      <div className="flex flex-col justify-between lg:sticky lg:top-[61px] lg:h-[calc(100vh-61px)]">
+        <div>
         <div
           className={`flex items-center border-b border-indigo-100 bg-indigo-50/70 px-3.5 py-3 dark:border-indigo-950 dark:bg-indigo-950/40 ${
             isCollapsed ? 'justify-center' : 'justify-between'
@@ -193,6 +194,7 @@ export function AdminSidebar({
               );
             })}
           </nav>
+        </div>
         </div>
       </div>
     </aside>

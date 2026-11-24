@@ -9,7 +9,6 @@ import {
   Cloud,
   ExternalLink,
   KeyRound,
-  ShieldCheck,
 } from 'lucide-react';
 import { DEFAULT_BRANDING } from '../config/branding';
 
@@ -73,8 +72,7 @@ export function LoginScreen({
             Sign in to {brandName}
           </h1>
           <p className="mt-1.5 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
-            Enter your Cymbal Google Cloud Identity or Microsoft 365 SSO email
-            address to continue to Google Sign-In.
+            Enter your Tech-M email address to continue to Google Sign-In.
           </p>
         </div>
 
@@ -132,11 +130,6 @@ export function LoginScreen({
             </button>
           )}
         </form>
-
-        <div className="mt-5 flex items-center justify-center gap-1.5 text-[11px] text-slate-400">
-          <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
-          <span>Protected by Google Cloud Identity & Engine IAM Policies</span>
-        </div>
       </div>
     </div>
   );

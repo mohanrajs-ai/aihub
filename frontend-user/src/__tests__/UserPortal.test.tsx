@@ -76,7 +76,17 @@ describe('Standalone User Portal Codebase', () => {
 
     render(<App />);
 
-    // Verify no suggested user accounts are displayed on the login page
+    // Verify updated Tech-M copy and removal of footer policy text & user list
+    expect(
+      screen.getByText(
+        'Enter your Tech-M email address to continue to Google Sign-In.',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        'Protected by Google Cloud Identity & Engine IAM Policies',
+      ),
+    ).not.toBeInTheDocument();
     expect(screen.queryByText('Select Workspace Account')).not.toBeInTheDocument();
     expect(
       screen.queryByText(/mohanraj@mohanrajs\.demo\.altostrat\.com/i),
