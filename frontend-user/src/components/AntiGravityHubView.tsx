@@ -56,9 +56,7 @@ export function AntiGravityHubView({
       stepNumber: '2',
       step: 'Step 2',
       title: 'Sign In with Your Tech-M Google Cloud Identity Account',
-      description: `Open the VS Code Command Palette (⇧⌘P / Ctrl+Shift+P), select "Antigravity: Sign In with Google", and sign in in your browser using ${
-        user?.email || 'your licensed Tech-M account'
-      } (${licenseTier} license).`,
+      description: `Open the VS Code Command Palette (⇧⌘P / Ctrl+Shift+P), select "Antigravity: Sign In with Google", and sign in in your browser using your licensed Tech-M account (${licenseTier} license).`,
     },
     {
       stepNumber: '3',
@@ -89,9 +87,7 @@ export function AntiGravityHubView({
       stepNumber: '2',
       step: 'Step 2',
       title: 'Authenticate with Your Tech-M Google Cloud Account',
-      description: `On first launch, follow the interactive browser sign-in prompt using ${
-        user?.email || 'your licensed Tech-M account'
-      } (${licenseTier} license).`,
+      description: `On first launch, follow the interactive browser sign-in prompt using your licensed Tech-M account (${licenseTier} license).`,
       command: 'agy --help',
     },
     {
@@ -124,9 +120,7 @@ export function AntiGravityHubView({
       stepNumber: '2',
       step: 'Step 2',
       title: 'Sign In & Select Your Workspace in the Left Sidebar',
-      description: `Authenticate with ${
-        user?.email || 'your licensed Tech-M account'
-      } (${licenseTier} license) and select your local repository under "Projects" in the left-hand sidebar.`,
+      description: `Authenticate with your licensed Tech-M account (${licenseTier} license) and select your local repository under "Projects" in the left-hand sidebar.`,
     },
     {
       stepNumber: '3',
@@ -286,15 +280,6 @@ export function AntiGravityHubView({
                 <strong>Antigravity App</strong>.
               </p>
             </div>
-          </div>
-
-          <div className="rounded-xl border border-indigo-200 bg-white/90 px-4 py-2.5 text-xs dark:border-indigo-900/60 dark:bg-slate-900/90">
-            <p className="font-semibold text-slate-500 dark:text-slate-400">
-              Licensed Developer Account
-            </p>
-            <p className="mt-0.5 font-mono font-bold text-indigo-700 dark:text-indigo-300">
-              {user?.email || 'employee@mohanrajs.demo.altostrat.com'}
-            </p>
           </div>
         </div>
 
