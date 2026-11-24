@@ -1,15 +1,15 @@
 # Implementation Plan: Separate User Portal and Admin Console Systems
 
-## Phase 1: Backend Role & Authorization Guardrails for Admin Endpoints
-- [ ] Task: Write backend unit tests for role-based authorization on admin endpoints
-  - [ ] Create tests verifying 403 Forbidden for non-admin tokens on `/api/v1/provisioning/*`, `/api/v1/sync/run`, and skill review/approval endpoints
-  - [ ] Create tests verifying successful 200/202 responses for authorized admin tokens
-- [ ] Task: Implement admin authorization dependencies in backend
-  - [ ] Add `require_admin_role` and `is_admin_user` helpers in `backend/app/auth.py`
-  - [ ] Protect `/api/v1/provisioning` router endpoints with `require_admin_role`
-  - [ ] Protect `/api/v1/sync/run` endpoint with `require_admin_role`
-  - [ ] Protect skill approval/rejection endpoints in `backend/app/routers/skills.py` with `require_admin_role`
-- [ ] Task: Phase 1 Verification & Checkpoint (Refer to workflow.md)
+## Phase 1: Backend Role & Authorization Guardrails for Admin Endpoints [checkpoint: c67569f]
+- [x] Task: Write backend unit tests for role-based authorization on admin endpoints [c67569f]
+  - [x] Create tests verifying 403 Forbidden for non-admin tokens on `/api/v1/provisioning/*`, `/api/v1/sync/run`, and skill review/approval endpoints [c67569f]
+  - [x] Create tests verifying successful 200/202 responses for authorized admin tokens [c67569f]
+- [x] Task: Implement admin authorization dependencies in backend [c67569f]
+  - [x] Add `require_admin_role` and `is_admin_user` helpers in `backend/app/auth.py` [c67569f]
+  - [x] Protect `/api/v1/provisioning` router endpoints with `require_admin_role` [c67569f]
+  - [x] Protect `/api/v1/sync/run` endpoint with `require_admin_role` [c67569f]
+  - [x] Protect skill approval/rejection endpoints in `backend/app/routers/skills.py` with `require_admin_role` [c67569f]
+- [x] Task: Phase 1 Verification & Checkpoint (Refer to workflow.md) [c67569f]
 
 ## Phase 2: User Portal and Admin Console UI Component Scaffolding
 - [ ] Task: Write frontend unit tests for separate User Portal and Admin Console components
