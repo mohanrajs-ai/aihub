@@ -24,8 +24,8 @@ def _setup_test_env(monkeypatch: pytest.MonkeyPatch) -> None:
     database.init_db()
 
 
-def test_user_backend_serves_user_routes_and_omits_admin_routes() -> None:
-    """Verifies backend-user exposes user APIs and returns 404 for admin APIs."""
+def test_user_backend_serves_only_app_catalog_and_auth_routes() -> None:
+    """Verifies backend-user exposes only auth/apps/groups and omits skills/agents/mcp/admin."""
     app = main.create_app()
     client = testclient.TestClient(app)
 
@@ -36,12 +36,12 @@ def test_user_backend_serves_user_routes_and_omits_admin_routes() -> None:
     apps_res = client.get("/api/v1/apps")
     assert apps_res.status_code == 200
 
+    # Skills, Agents, Connectors/MCP, and Admin routes are omitted from backend-user
+    assert client.get("/api/v1/skills").status_code == 404
+    assert client.get("/api/v1/agents").status_code == 404
+    assert client.get("/api/v1/mcp-servers").status_code == 404
     assert client.get("/api/v1/admin/provisioning/jobs").status_code == 404
     assert client.post("/api/v1/sync").status_code == 404
-    assert (
-        client.post("/api/v1/workflows/skills/test-skill/approve").status_code
-        == 404
-    )
 
 
 def test_user_backend_isolated_database_and_schema(
@@ -55,10 +55,14 @@ def test_user_backend_isolated_database_and_schema(
     assert "provisioning_jobs" not in db_models.Base.metadata.tables
 
 
-def test_user_backend_codebase_excludes_admin_files() -> None:
-    """Verifies backend-user physically excludes admin provisioning & sync files."""
+def test_user_backend_codebase_excludes_admin_and_duplicate_files() -> None:
+    """Verifies backend-user physically excludes admin, skills, agents, and mcp routers."""
     assert not (BACKEND_USER_ROOT / "app" / "routers" / "provisioning.py").exists()
     assert not (BACKEND_USER_ROOT / "app" / "routers" / "sync.py").exists()
+    assert not (BACKEND_USER_ROOT / "app" / "routers" / "skills.py").exists()
+    assert not (BACKEND_USER_ROOT / "app" / "routers" / "agents.py").exists()
+    assert not (BACKEND_USER_ROOT / "app" / "routers" / "mcp_servers.py").exists()
+    assert not (BACKEND_USER_ROOT / "skill_workflow_service").exists()
     assert not (
         BACKEND_USER_ROOT / "app" / "services" / "terraform_runner.py"
     ).exists()

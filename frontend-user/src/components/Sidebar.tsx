@@ -1,17 +1,13 @@
 /**
  * User Portal Docked Left Navigation Sidebar (Google Cloud Console Style).
- * Anchored flush to the left viewport edge underneath the top header bar.
- * Displays navigation rail for Apps, Skills, Agents, and MCP Connectors.
+ * Displays navigation rail exclusively for GE App Hub.
  */
 
 import React, { useState } from 'react';
 import {
-  Bot,
   LayoutGrid,
   PanelLeftClose,
   PanelLeftOpen,
-  PlugZap,
-  Sparkles,
 } from 'lucide-react';
 import { PortalSection } from '../types/catalog';
 
@@ -19,9 +15,6 @@ export interface SidebarProps {
   activeSection: PortalSection;
   onSelectSection: (section: PortalSection) => void;
   appsCount: number;
-  skillsCount: number;
-  agentsCount?: number;
-  mcpCount?: number;
   collapsed?: boolean;
   onToggleCollapse?: () => void;
 }
@@ -30,9 +23,6 @@ export function Sidebar({
   activeSection,
   onSelectSection,
   appsCount,
-  skillsCount,
-  agentsCount = 1,
-  mcpCount = 7,
   collapsed,
   onToggleCollapse,
 }: SidebarProps): React.ReactElement {
@@ -64,42 +54,6 @@ export function Sidebar({
       badge: (
         <span className="rounded-full bg-slate-200/80 px-2 py-0.5 text-xs font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-300">
           {appsCount}
-        </span>
-      ),
-    },
-    {
-      id: 'skills',
-      label: 'Skill Registry',
-      description: 'Published AI Skill Hub',
-      icon: <Sparkles className="h-4 w-4 shrink-0" aria-hidden="true" />,
-      count: skillsCount,
-      badge: (
-        <span className="rounded-full bg-slate-200/80 px-2 py-0.5 text-xs font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-300">
-          {skillsCount}
-        </span>
-      ),
-    },
-    {
-      id: 'agents',
-      label: 'Agent Registry',
-      description: 'Specialized ADK Agents',
-      icon: <Bot className="h-4 w-4 shrink-0" aria-hidden="true" />,
-      count: agentsCount,
-      badge: (
-        <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-700 dark:bg-blue-950/80 dark:text-blue-300">
-          {agentsCount}
-        </span>
-      ),
-    },
-    {
-      id: 'mcp',
-      label: 'Connector/MCP',
-      description: 'Data Connectors & MCP',
-      icon: <PlugZap className="h-4 w-4 shrink-0" aria-hidden="true" />,
-      count: mcpCount,
-      badge: (
-        <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-300">
-          {mcpCount}
         </span>
       ),
     },

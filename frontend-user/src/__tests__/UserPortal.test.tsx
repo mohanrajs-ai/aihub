@@ -1,8 +1,8 @@
 /**
  * Unit and integration tests for the Standalone User Portal codebase.
- * Verifies that the User Portal bundle renders only user sections,
+ * Verifies that the User Portal bundle renders only GE App Hub,
  * shows no pre-populated accounts on the login page, redirects to Google Login
- * with the entered email ID, and completely excludes admin panels.
+ * with the entered email ID, and completely excludes Skills, Agents, MCP, and Admin panels.
  */
 
 import { fireEvent, render, screen } from '@testing-library/react';
@@ -46,141 +46,6 @@ describe('Standalone User Portal Codebase', () => {
       departments: ['Organization-Wide'],
       groups: ['hr-app-users@mohanrajs.demo.altostrat.com'],
     });
-    vi.spyOn(apiClient, 'fetchSkills').mockResolvedValue({
-      items: [
-        {
-          skill_id: 'ge-enterprise-search:daily-brief',
-          resource_name: 'projects/p/locations/global/engines/ge-enterprise-search/skills/daily-brief',
-          engine_id: 'ge-enterprise-search',
-          app_display_name: 'Gemini Enterprise Knowledge Search',
-          display_name: 'daily-brief',
-          description: 'Generates daily executive summary.',
-          instruction: '# SKILL.md\nDaily brief instructions.',
-          gcs_uri: '',
-          owner_email: 'owner@example.com',
-          state: 'ENABLED',
-          sharing_scope: 'ORGANIZATION',
-          sharing_state: 'SHARED',
-          has_active_iam_proposals: false,
-          review_status: 'APPROVED',
-          iam_proposals: [],
-          shared_principals: [],
-          subfiles: [],
-          create_time: '',
-          update_time: '',
-          workflow: {
-            workflow_id: 'wf-1',
-            skill_id: 'ge-enterprise-search:daily-brief',
-            engine_id: 'ge-enterprise-search',
-            skill_display_name: 'daily-brief',
-            owner_email: 'owner@example.com',
-            current_stage: 'PUBLISHED',
-            status: 'COMPLETED',
-            eval_score: 96,
-            eval_status: 'PASSED',
-            eval_report: {},
-            infosec_risk_level: 'LOW',
-            infosec_status: 'PASSED',
-            infosec_report: {},
-            approval_status: 'APPROVED',
-            approved_by: 'infosec@example.com',
-            approval_notes: '',
-            registry_id: 'reg-1',
-            shared_in_ge: true,
-            shared_principals: [],
-            required_connectors: [
-              { connector_id: 'jira-cloud', display_name: 'Atlassian Jira' },
-            ],
-            target_engines: ['ge-enterprise-search'],
-          },
-        },
-        {
-          skill_id: 'unauthorized-app:secret-skill',
-          resource_name: 'projects/p/locations/global/engines/unauthorized-app/skills/secret-skill',
-          engine_id: 'unauthorized-app',
-          app_display_name: 'Unauthorized App',
-          display_name: 'secret-skill',
-          description: 'Should not appear because user has no access to unauthorized-app.',
-          instruction: '# SKILL.md\nSecret',
-          gcs_uri: '',
-          owner_email: 'owner@example.com',
-          state: 'ENABLED',
-          sharing_scope: 'RESTRICTED',
-          sharing_state: 'SHARED',
-          has_active_iam_proposals: false,
-          review_status: 'APPROVED',
-          iam_proposals: [],
-          shared_principals: [],
-          subfiles: [],
-          create_time: '',
-          update_time: '',
-        },
-      ],
-      total: 2,
-      pending_review_count: 0,
-      approved_count: 2,
-      draft_count: 0,
-    });
-    vi.spyOn(apiClient, 'fetchRegistrySkills').mockResolvedValue({
-      items: [],
-      total: 0,
-    });
-    vi.spyOn(apiClient, 'fetchAgents').mockResolvedValue([
-      {
-        agent_id: 'universal-skill-orchestrator',
-        display_name: 'Universal Skill Orchestrator',
-        resource_name: 'projects/p/locations/us-central1/reasoningEngines/101',
-        description: 'Executes composite skills.',
-        deployment_target: 'agent_runtime',
-        pinned_apps: ['ge-enterprise-search'],
-        shared_skills: ['daily-brief'],
-        starter_prompts: ['Run daily brief'],
-        status: 'ACTIVE',
-        subskills_count: 5,
-        version: '1.0.0',
-      },
-      {
-        agent_id: 'unauthorized-agent',
-        display_name: 'Unauthorized Agent',
-        resource_name: 'projects/p/locations/us-central1/reasoningEngines/999',
-        description: 'Hidden from user',
-        deployment_target: 'agent_runtime',
-        pinned_apps: ['unauthorized-app'],
-        shared_skills: [],
-        starter_prompts: [],
-        status: 'ACTIVE',
-        subskills_count: 1,
-        version: '1.0.0',
-      },
-    ]);
-    vi.spyOn(apiClient, 'fetchMcpServers').mockResolvedValue([
-      {
-        server_id: 'cymbal-jira',
-        display_name: 'Atlassian Jira Connector',
-        data_source: 'JIRA',
-        endpoint_uri: 'https://cymbal.atlassian.net',
-        connector_modes: ['FEDERATED', 'ACTIONS'],
-        entities: ['issue'],
-        enabled_actions: ['create_issue'],
-        tools_count: 4,
-        status: 'ACTIVE',
-        action_state: 'ENABLED',
-        attached_apps: ['ge-enterprise-search'],
-      },
-      {
-        server_id: 'unauthorized-mcp',
-        display_name: 'Unauthorized MCP',
-        data_source: 'SECRET',
-        endpoint_uri: 'https://secret.example.com',
-        connector_modes: ['FEDERATED'],
-        entities: [],
-        enabled_actions: [],
-        tools_count: 1,
-        status: 'ACTIVE',
-        action_state: 'ENABLED',
-        attached_apps: ['unauthorized-app'],
-      },
-    ]);
   });
 
   it('shows no user list on the login screen and redirects to Google login with the entered email', () => {
@@ -198,7 +63,6 @@ describe('Standalone User Portal Codebase', () => {
 
     render(<App />);
 
-    // Verify updated Tech-M copy and removal of footer policy text & user list
     expect(
       screen.getByText(
         'Enter your Tech-M email address to continue to Google Sign-In.',
@@ -210,12 +74,6 @@ describe('Standalone User Portal Codebase', () => {
       ),
     ).not.toBeInTheDocument();
     expect(screen.queryByText('Select Workspace Account')).not.toBeInTheDocument();
-    expect(
-      screen.queryByText(/mohanraj@mohanrajs\.demo\.altostrat\.com/i),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByText(/pradeepg@mohanrajs\.demo\.altostrat\.com/i),
-    ).not.toBeInTheDocument();
 
     const emailInput = screen.getByLabelText('Work Email Address');
     fireEvent.change(emailInput, {
@@ -229,15 +87,12 @@ describe('Standalone User Portal Codebase', () => {
     );
   });
 
-  it('renders all user modules and completely excludes admin governance and IaC panels', async () => {
+  it('renders only GE App Hub and excludes Skills, Agents, Connectors/MCP, and Admin panels', async () => {
     window.sessionStorage.setItem('ge_user_auth_token', 'test-user-session');
     render(<App />);
 
     const titles = await screen.findAllByText('GE App Hub');
     expect(titles.length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText('Skill Registry')).toBeInTheDocument();
-    expect(screen.getByText('Agent Registry')).toBeInTheDocument();
-    expect(screen.getByText('Connector/MCP')).toBeInTheDocument();
 
     // Verify application table columns: APP ID, APP Name, Group, Location, URL
     expect(screen.getByText('APP ID')).toBeInTheDocument();
@@ -249,49 +104,19 @@ describe('Standalone User Portal Codebase', () => {
     expect(
       screen.getByText('https://vertexaisearch.cloud.google.com/home'),
     ).toBeInTheDocument();
-    expect(
-      screen.queryByText('Category & Department'),
-    ).not.toBeInTheDocument();
 
-    // Verify zero administrative presence and no persona simulator in user menu
+    // Verify Skills, Agents, Connectors/MCP, and Admin panels are excluded
+    expect(screen.queryByText('Skill Registry')).not.toBeInTheDocument();
+    expect(screen.queryByText('Agent Registry')).not.toBeInTheDocument();
+    expect(screen.queryByText('Connector/MCP')).not.toBeInTheDocument();
     expect(screen.queryByText('Skill Governance')).not.toBeInTheDocument();
     expect(screen.queryByText('Infra Provisioning')).not.toBeInTheDocument();
     expect(screen.queryByText('Admin Console')).not.toBeInTheDocument();
-    expect(screen.queryByText('Admin & Governance')).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByLabelText('Toggle user profile menu'));
     expect(screen.getByText('Sign Out')).toBeInTheDocument();
     expect(
       screen.queryByText(/Simulate Cloud Identity Persona/i),
     ).not.toBeInTheDocument();
-
-    // Navigate to Skill Registry and verify app filter & 4 skill fields
-    fireEvent.click(screen.getByLabelText('Skill Registry'));
-    expect(await screen.findByText('Skill ID')).toBeInTheDocument();
-    expect(screen.getByText('Slash Command')).toBeInTheDocument();
-    expect(screen.getByText('Required Connector')).toBeInTheDocument();
-    expect(screen.getByText('SKILL.md')).toBeInTheDocument();
-    expect(
-      screen.getByText('ge-enterprise-search:daily-brief'),
-    ).toBeInTheDocument();
-    expect(screen.getByText('/daily-brief')).toBeInTheDocument();
-    expect(screen.getByText('Atlassian Jira')).toBeInTheDocument();
-    expect(screen.getByText('View SKILL.md')).toBeInTheDocument();
-    // Skill belonging to an app the user does not have access to is hidden
-    expect(
-      screen.queryByText('unauthorized-app:secret-skill'),
-    ).not.toBeInTheDocument();
-
-    // Navigate to Agent Registry and verify authorized app filter & columns
-    fireEvent.click(screen.getByLabelText('Agent Registry'));
-    expect(await screen.findByText('Agent ID')).toBeInTheDocument();
-    expect(screen.getByText('universal-skill-orchestrator')).toBeInTheDocument();
-    expect(screen.queryByText('unauthorized-agent')).not.toBeInTheDocument();
-
-    // Navigate to Connector/MCP and verify authorized app filter & columns
-    fireEvent.click(screen.getByLabelText('Connector/MCP'));
-    expect(await screen.findByText('Connector ID')).toBeInTheDocument();
-    expect(screen.getByText('cymbal-jira')).toBeInTheDocument();
-    expect(screen.queryByText('unauthorized-mcp')).not.toBeInTheDocument();
   });
 });

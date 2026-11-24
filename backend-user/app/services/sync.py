@@ -12,9 +12,6 @@ from app import db_models
 from app import models
 from app.services import discovery
 from app.services import firestore as firestore_mod
-from skill_workflow_service import engine as wf_engine
-from skill_workflow_service.agents import infosec_agent
-from skill_workflow_service.agents import skill_eval_agent
 
 LOGGER = logging.getLogger(__name__)
 DEFAULT_CANDIDATE_USERS: tuple[str, ...] = (
@@ -339,12 +336,6 @@ class CatalogSyncService:
                         )
                     )
                     memberships_count += 1
-
-            self._sync_skills(
-                session=session,
-                engines=engines,
-                now=now,
-            )
 
             run_record.status = "completed"
             run_record.apps_synced = apps_count

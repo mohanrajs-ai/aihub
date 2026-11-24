@@ -1,38 +1,27 @@
 /**
  * Standalone User Portal Root Component.
  * Pure end-user application for Gemini Enterprise AppHub.
- * Exclusively provides access to App Catalog, Published Skill Registry,
- * Agent Registry, and MCP Connectors.
+ * Exclusively provides access to the GE App Hub catalog (Skills, Agents,
+ * and Connectors/MCP are available directly inside each launched GE App).
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertCircle, RefreshCw } from 'lucide-react';
 import {
   buildGoogleSsoLoginUrl,
-  fetchAgents,
   fetchApps,
   fetchCurrentUser,
-  fetchMcpServers,
-  fetchRegistrySkills,
-  fetchSkills,
   logoutUser,
 } from './api/client';
-import { AgentsView } from './components/AgentsView';
 import { CatalogGrid } from './components/CatalogGrid';
 import { Header } from './components/Header';
 import { LoginScreen } from './components/LoginScreen';
-import { McpServersView } from './components/McpServersView';
 import { SearchFilterBar } from './components/SearchFilterBar';
 import { Sidebar } from './components/Sidebar';
-import { SkillsSection } from './components/SkillsSection';
 import { ThemeProvider } from './context/ThemeContext';
 import {
-  AgentSummary,
   CatalogApplication,
-  DiscoveredSkill,
-  McpServerSummary,
   PortalSection,
-  SkillRegistryItem,
   UserContext,
 } from './types/catalog';
 
@@ -95,14 +84,9 @@ export function App(): React.ReactElement {
 
   const [activeSection, setActiveSection] = useState<PortalSection>('apps');
   const [apps, setApps] = useState<CatalogApplication[]>([]);
-  const [agents, setAgents] = useState<AgentSummary[]>([]);
-  const [mcpServers, setMcpServers] = useState<McpServerSummary[]>([]);
-  const [skills, setSkills] = useState<DiscoveredSkill[]>([]);
-  const [registrySkills, setRegistrySkills] = useState<SkillRegistryItem[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [departments, setDepartments] = useState<string[]>([]);
   const [groups, setGroups] = useState<string[]>([]);
-  const [activeDevRole, setActiveDevRole] = useState<string>('employee');
   const [appsViewMode, setAppsViewMode] = useState<'grid' | 'list'>('list');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<string>('');
@@ -119,68 +103,33 @@ export function App(): React.ReactElement {
     }
   }, []);
 
-  const loadCatalogData = useCallback(
-    async (role: string, token: string) => {
-      setLoading(true);
-      setError(null);
-      try {
-        const [userRes, catalogRes] = await Promise.all([
-          fetchCurrentUser(role, token),
-          fetchApps({ devRole: role, authToken: token }),
-        ]);
-        setUser(userRes);
-        setApps(catalogRes.items);
-        setCategories(catalogRes.categories);
-        setDepartments(catalogRes.departments);
-        setGroups(catalogRes.groups ?? userRes.groups ?? []);
-
-        void fetchSkills({ devRole: role, authToken: token })
-          .then((skillsRes) => {
-            if (skillsRes && Array.isArray(skillsRes.items)) {
-              setSkills(skillsRes.items);
-            }
-          })
-          .catch(() => null);
-
-        void fetchRegistrySkills(token)
-          .then((regRes) => {
-            if (regRes && Array.isArray(regRes.items)) {
-              setRegistrySkills(regRes.items);
-            }
-          })
-          .catch(() => null);
-
-        void fetchAgents(token, role)
-          .then((agRes) => {
-            if (Array.isArray(agRes)) {
-              setAgents(agRes);
-            }
-          })
-          .catch(() => null);
-
-        void fetchMcpServers(token, role)
-          .then((mcpRes) => {
-            if (Array.isArray(mcpRes)) {
-              setMcpServers(mcpRes);
-            }
-          })
-          .catch(() => null);
-      } catch (err) {
-        const message =
-          err instanceof Error ? err.message : 'Unexpected backend error';
-        setError(message);
-      } finally {
-        setLoading(false);
-      }
-    },
-    [],
-  );
+  const loadCatalogData = useCallback(async (token: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [userRes, catalogRes] = await Promise.all([
+        fetchCurrentUser('employee', token),
+        fetchApps({ devRole: 'employee', authToken: token }),
+      ]);
+      setUser(userRes);
+      setApps(catalogRes.items);
+      setCategories(catalogRes.categories);
+      setDepartments(catalogRes.departments);
+      setGroups(catalogRes.groups ?? userRes.groups ?? []);
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Unexpected backend error';
+      setError(message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     if (authToken) {
-      void loadCatalogData(activeDevRole, authToken);
+      void loadCatalogData(authToken);
     }
-  }, [activeDevRole, authToken, loadCatalogData]);
+  }, [authToken, loadCatalogData]);
 
   function handleLoginEmail(email: string): void {
     setAuthLoading(true);
@@ -195,15 +144,6 @@ export function App(): React.ReactElement {
     setUser(null);
     setApps([]);
     setGroups([]);
-  }
-
-  function handleRoleOrUserSwitch(newRole: string): void {
-    if (newRole.includes('@')) {
-      setActiveDevRole('employee');
-      void handleLoginEmail(newRole);
-      return;
-    }
-    setActiveDevRole(newRole);
   }
 
   const filteredApps = useMemo(
@@ -247,21 +187,13 @@ export function App(): React.ReactElement {
         />
       ) : (
         <div className="min-h-screen bg-slate-50 text-slate-900 transition-colors dark:bg-slate-950 dark:text-slate-100">
-          <Header
-            user={user}
-            activeDevRole={activeDevRole}
-            onDevRoleChange={handleRoleOrUserSwitch}
-            onSignOut={handleSignOut}
-          />
+          <Header user={user} onSignOut={handleSignOut} />
 
           <div className="flex min-h-[calc(100vh-61px)] flex-col lg:flex-row">
             <Sidebar
               activeSection={activeSection}
               onSelectSection={setActiveSection}
               appsCount={apps.length}
-              skillsCount={skills.length}
-              agentsCount={agents.length || 1}
-              mcpCount={mcpServers.length || 7}
             />
 
             <main className="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-8">
@@ -285,9 +217,7 @@ export function App(): React.ReactElement {
                     </div>
                     <button
                       type="button"
-                      onClick={() =>
-                        void loadCatalogData(activeDevRole, authToken)
-                      }
+                      onClick={() => void loadCatalogData(authToken)}
                       className="inline-flex items-center gap-1.5 rounded-xl bg-red-600 px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-red-700"
                     >
                       <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
@@ -296,80 +226,45 @@ export function App(): React.ReactElement {
                   </div>
                 )}
 
-                {activeSection === 'apps' && (
-                  <>
-                    <div className="mb-6">
-                      <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-                        GE App Hub
-                      </h2>
-                      <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                        Browse, filter, and launch Gemini Enterprise agents and
-                        search applications authorized for your Cloud Identity
-                        groups.
-                      </p>
-                    </div>
+                <div className="mb-6">
+                  <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+                    GE App Hub
+                  </h2>
+                  <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                    Browse, filter, and launch Gemini Enterprise applications
+                    authorized for your Cloud Identity groups.
+                  </p>
+                </div>
 
-                    <SearchFilterBar
-                      searchQuery={searchQuery}
-                      selectedCategory={selectedCategory}
-                      selectedDepartment={selectedDepartment}
-                      selectedTag={selectedTag}
-                      selectedGroup={selectedGroup}
-                      categories={categories}
-                      departments={departments}
-                      groups={groups}
-                      totalCount={apps.length}
-                      filteredCount={filteredApps.length}
-                      onSearchChange={setSearchQuery}
-                      onCategoryChange={setSelectedCategory}
-                      onDepartmentChange={setSelectedDepartment}
-                      onGroupChange={setSelectedGroup}
-                      onClearFilters={handleClearFilters}
-                      viewMode={appsViewMode}
-                      onViewModeChange={setAppsViewMode}
-                    />
+                <SearchFilterBar
+                  searchQuery={searchQuery}
+                  selectedCategory={selectedCategory}
+                  selectedDepartment={selectedDepartment}
+                  selectedTag={selectedTag}
+                  selectedGroup={selectedGroup}
+                  categories={categories}
+                  departments={departments}
+                  groups={groups}
+                  totalCount={apps.length}
+                  filteredCount={filteredApps.length}
+                  onSearchChange={setSearchQuery}
+                  onCategoryChange={setSelectedCategory}
+                  onDepartmentChange={setSelectedDepartment}
+                  onGroupChange={setSelectedGroup}
+                  onClearFilters={handleClearFilters}
+                  viewMode={appsViewMode}
+                  onViewModeChange={setAppsViewMode}
+                />
 
-                    <CatalogGrid
-                      apps={filteredApps}
-                      loading={loading}
-                      onResetFilters={handleClearFilters}
-                      onSelectTag={(tag) =>
-                        setSelectedTag((prev) => (prev === tag ? '' : tag))
-                      }
-                      viewMode={appsViewMode}
-                    />
-                  </>
-                )}
-
-                {activeSection === 'skills' && (
-                  <SkillsSection
-                    mode="user-hub"
-                    skills={skills}
-                    userApps={apps}
-                    availableAgents={agents}
-                    isAdmin={false}
-                    pendingReviewCount={0}
-                    approvedCount={registrySkills.length || skills.length}
-                    registrySkills={registrySkills}
-                    loading={loading}
-                  />
-                )}
-
-                {activeSection === 'agents' && (
-                  <AgentsView
-                    agents={agents}
-                    userApps={apps}
-                    loading={loading}
-                  />
-                )}
-
-                {activeSection === 'mcp' && (
-                  <McpServersView
-                    servers={mcpServers}
-                    userApps={apps}
-                    loading={loading}
-                  />
-                )}
+                <CatalogGrid
+                  apps={filteredApps}
+                  loading={loading}
+                  onResetFilters={handleClearFilters}
+                  onSelectTag={(tag) =>
+                    setSelectedTag((prev) => (prev === tag ? '' : tag))
+                  }
+                  viewMode={appsViewMode}
+                />
               </div>
             </main>
           </div>

@@ -13,13 +13,9 @@ from app import auth
 from app import config
 from app import database
 from app import models
-from app.routers import agents as agents_router
 from app.routers import apps
 from app.routers import auth as auth_router
 from app.routers import groups as groups_router
-from app.routers import mcp_servers as mcp_router
-from app.routers import skills as skills_router
-from skill_workflow_service import router as workflow_router
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 DEFAULT_FRONTEND_DIST = REPO_ROOT / "frontend-user" / "dist"
@@ -49,7 +45,7 @@ def create_app(
         title="Gemini Enterprise AppHub — User Portal API",
         description=(
             "Standalone User Portal API for discovering and launching "
-            "Gemini Enterprise applications, skills, agents, and connectors."
+            "Gemini Enterprise applications."
         ),
         version="0.1.0",
         lifespan=_app_lifespan,
@@ -90,10 +86,6 @@ def create_app(
     application.include_router(auth_router.router)
     application.include_router(apps.router)
     application.include_router(groups_router.router)
-    application.include_router(agents_router.router)
-    application.include_router(mcp_router.router)
-    application.include_router(skills_router.router)
-    application.include_router(workflow_router.router)
 
     resolved_dist = static_dir or DEFAULT_FRONTEND_DIST
     index_html = resolved_dist / "index.html"
