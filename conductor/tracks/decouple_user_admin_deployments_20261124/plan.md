@@ -1,16 +1,16 @@
 # Implementation Plan: Decouple User Portal and Admin Console into Separate Codebases and Independent Deployments
 
-## Phase 1: Standalone User Portal Codebase & Test Suite (`frontend-user/`)
-- [ ] Task: Scaffold `frontend-user/` workspace and configuration
-  - [ ] Initialize `frontend-user/package.json`, `vite.config.ts`, `tsconfig.json`, and Tailwind setup
-  - [ ] Configure Vite proxy for backend API (`http://localhost:8080`) on port 5173
-- [ ] Task: Implement standalone User Portal application
-  - [ ] Create user-only `App.tsx`, `Header.tsx`, `Sidebar.tsx`, and views (`CatalogGrid`, `AppCard`, `SearchFilterBar`, `SkillsSection`, `AgentsView`, `McpServersView`)
-  - [ ] Ensure zero administrative components or route leaks exist in `frontend-user/`
-- [ ] Task: Write unit tests and verify production build in `frontend-user/`
-  - [ ] Write Vitest unit tests in `frontend-user/src/__tests__/UserPortal.test.tsx`
-  - [ ] Run `npm test -- --run` and `npm run build` to verify clean build
-- [ ] Task: Phase 1 Verification & Checkpoint (Refer to workflow.md)
+## Phase 1: Standalone User Portal Codebase & Test Suite (`frontend-user/`) [checkpoint: cd3d1bd]
+- [x] Task: Scaffold `frontend-user/` workspace and configuration [cd3d1bd]
+  - [x] Initialize `frontend-user/package.json`, `vite.config.ts`, `tsconfig.json`, and Tailwind setup [cd3d1bd]
+  - [x] Configure Vite proxy for backend API (`http://localhost:8080`) on port 5173 [cd3d1bd]
+- [x] Task: Implement standalone User Portal application [cd3d1bd]
+  - [x] Create user-only `App.tsx`, `Header.tsx`, `Sidebar.tsx`, and views (`CatalogGrid`, `AppCard`, `SearchFilterBar`, `SkillsSection`, `AgentsView`, `McpServersView`) [cd3d1bd]
+  - [x] Ensure zero administrative components or route leaks exist in `frontend-user/` [cd3d1bd]
+- [x] Task: Write unit tests and verify production build in `frontend-user/` [cd3d1bd]
+  - [x] Write Vitest unit tests in `frontend-user/src/__tests__/UserPortal.test.tsx` [cd3d1bd]
+  - [x] Run `npm test -- --run` and `npm run build` to verify clean build [cd3d1bd]
+- [x] Task: Phase 1 Verification & Checkpoint (Refer to workflow.md) [cd3d1bd]
 
 ## Phase 2: Standalone Admin Console Codebase & Test Suite (`frontend-admin/`)
 - [ ] Task: Scaffold `frontend-admin/` workspace and configuration
