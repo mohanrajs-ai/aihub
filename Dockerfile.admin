@@ -2,7 +2,7 @@
 FROM node:20-slim AS frontend-admin-builder
 WORKDIR /workspace/frontend-admin
 COPY frontend-admin/package*.json ./
-RUN npm ci
+RUN npm install --no-audit --no-fund
 COPY frontend-admin/ ./
 RUN npm run build
 

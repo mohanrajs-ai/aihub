@@ -41,24 +41,41 @@ gcloud services enable \
   cloudidentity.googleapis.com \
   --project="${PROJECT_ID}"
 
-# 2. Ensure Artifact Registry Repository Exists
-echo "[Step 2/5] Ensuring Artifact Registry repository '${AR_REPO}' exists..."
+# 2. Ensure Artifact Registry Repository & Cloud Build Permissions Exist
+echo "[Step 2/5] Ensuring Artifact Registry repository '${AR_REPO}' and Service Accounts exist..."
 if ! gcloud artifacts repositories describe "${AR_REPO}" \
   --location="${REGION}" \
-  --project="${PROJECT_ID}" >/dev/null 2>&1; then
+  --project="${PROJECT_ID}" \
+  --quiet >/dev/null 2>&1; then
   gcloud artifacts repositories create "${AR_REPO}" \
     --repository-format=docker \
     --location="${REGION}" \
     --description="Container repository for Gemini AI Hub User Portal" \
-    --project="${PROJECT_ID}"
+    --project="${PROJECT_ID}" \
+    --quiet
 fi
+
+PROJECT_NUMBER="$(gcloud projects describe "${PROJECT_ID}" --format="value(projectNumber)" --quiet)"
+CB_SA="${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
+for ROLE in roles/storage.objectAdmin roles/artifactregistry.writer roles/logging.logWriter roles/cloudbuild.builds.builder; do
+  gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
+    --member="serviceAccount:${CB_SA}" \
+    --role="${ROLE}" --condition=None --quiet >/dev/null
+done
+
+gcloud iam service-accounts describe "sa-user-portal-web@${PROJECT_ID}.iam.gserviceaccount.com" --project="${PROJECT_ID}" --quiet >/dev/null 2>&1 || \
+  gcloud iam service-accounts create sa-user-portal-web --display-name="Gemini AI Hub User Portal Web Runtime SA" --project="${PROJECT_ID}" --quiet
+
+gcloud iam service-accounts describe "sa-user-portal-sync@${PROJECT_ID}.iam.gserviceaccount.com" --project="${PROJECT_ID}" --quiet >/dev/null 2>&1 || \
+  gcloud iam service-accounts create sa-user-portal-sync --display-name="Gemini AI Hub User Portal Catalog Sync SA" --project="${PROJECT_ID}" --quiet
 
 # 3. Build & Push User Portal Container Image via Cloud Build
 echo "[Step 3/5] Building and pushing Dockerfile.user via Cloud Build..."
 gcloud builds submit \
   --config=cloudbuild.user.yaml \
   --substitutions="_REGION=${REGION},_AR_REPO=${AR_REPO},_IMAGE_NAME=${IMAGE_NAME},_TAG=${IMAGE_TAG}" \
-  --project="${PROJECT_ID}"
+  --project="${PROJECT_ID}" \
+  --quiet
 
 # 4. Provision Infrastructure via Terraform (or Direct Cloud Run Deployment)
 if [[ -n "${VPC_NETWORK_ID:-}" && -n "${VPC_EGRESS_SUBNET_ID:-}" && -n "${ILB_SUBNET_ID:-}" && -n "${SSL_CERTIFICATE_ID:-}" ]]; then

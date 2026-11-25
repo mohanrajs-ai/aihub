@@ -4,6 +4,23 @@ This step-by-step deployment guide walks through deploying the standalone **Gemi
 
 ---
 
+## Live Deployment Summary (`cymbal-app-514110`)
+
+| Resource | Deployed Identifier / Endpoint |
+| :--- | :--- |
+| **GCP Project** | `cymbal-app-514110` (`457338748091`) |
+| **Region** | `us-central1` |
+| **Artifact Registry Repo** | `us-central1-docker.pkg.dev/cymbal-app-514110/ge-user-portal-repo` |
+| **Container Image** | `us-central1-docker.pkg.dev/cymbal-app-514110/ge-user-portal-repo/ge-user-portal:latest` |
+| **Cloud Run Service** | `ge-user-portal-web` (`ge-user-portal-web-00001-6k4`) |
+| **Live Service URL** | `https://ge-user-portal-web-457338748091.us-central1.run.app` |
+| **Cloud Run Sync Job** | `ge-user-portal-sync-job` (`python -m app.sync_job`) |
+| **Cloud Scheduler Cron** | `ge-user-portal-sync-every-15m` (`*/15 * * * *`) |
+| **Web Runtime SA** | `sa-user-portal-web@cymbal-app-514110.iam.gserviceaccount.com` |
+| **Catalog Sync SA** | `sa-user-portal-sync@cymbal-app-514110.iam.gserviceaccount.com` |
+
+---
+
 ## 1. Prerequisites & Authentication
 
 1. **Authenticate `gcloud` and Application Default Credentials (ADC)**:
