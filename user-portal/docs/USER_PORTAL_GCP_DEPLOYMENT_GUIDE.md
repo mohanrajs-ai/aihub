@@ -65,6 +65,12 @@ export GOOGLE_CLIENT_SECRET="<YOUR_OAUTH_CLIENT_SECRET>"
 
 # 3. Internal Domain Name (SSL Certificate & Cloud DNS Private Zone are created automatically by Terraform)
 export INTERNAL_DOMAIN_NAME="aihub.internal.corp"
+
+# 4. Artifact Registry & Cloud Build Image Settings
+export GCS_SOURCE_BUCKET="${GCP_PROJECT_ID}-user-portal-source"
+export AR_REPO="ge-user-portal-repo"
+export IMAGE_NAME="ge-user-portal"
+export IMAGE_TAG="latest"
 ```
 
 ### Step 4: Authenticate `gcloud` and Application Default Credentials (ADC)
@@ -94,13 +100,27 @@ Instead of uploading directly from a local folder without staging, you can sync 
 
 ```bash
 source user-portal/deploy/config.env
+export GCP_REGION="${GCP_REGION:-us-central1}"
 export GCS_SOURCE_BUCKET="${GCS_SOURCE_BUCKET:-${GCP_PROJECT_ID}-user-portal-source}"
+export AR_REPO="${AR_REPO:-ge-user-portal-repo}"
+export IMAGE_NAME="${IMAGE_NAME:-ge-user-portal}"
+export IMAGE_TAG="${IMAGE_TAG:-latest}"
 
-# 1. Create the GCS Source Bucket (if not yet created by Terraform)
+# 1. Create the GCS Source Bucket & Artifact Registry Repository (if not yet created by Terraform)
+gcloud services enable storage.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com \
+  --project="${GCP_PROJECT_ID}"
+
 gcloud storage buckets describe "gs://${GCS_SOURCE_BUCKET}" --project="${GCP_PROJECT_ID}" >/dev/null 2>&1 || \
   gcloud storage buckets create "gs://${GCS_SOURCE_BUCKET}" \
     --location="${GCP_REGION}" \
     --uniform-bucket-level-access \
+    --project="${GCP_PROJECT_ID}"
+
+gcloud artifacts repositories describe "${AR_REPO}" --location="${GCP_REGION}" --project="${GCP_PROJECT_ID}" >/dev/null 2>&1 || \
+  gcloud artifacts repositories create "${AR_REPO}" \
+    --repository-format=docker \
+    --location="${GCP_REGION}" \
+    --description="Container repository for Gemini AI Hub User Portal" \
     --project="${GCP_PROJECT_ID}"
 
 # 2. Sync the User Portal source code to GCS (gs://<BUCKET>/src/)
