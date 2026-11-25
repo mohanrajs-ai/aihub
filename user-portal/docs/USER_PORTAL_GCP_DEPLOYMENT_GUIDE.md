@@ -15,8 +15,9 @@ user-portal/
 ├── frontend/                               # React 18 + TypeScript + Vite User Portal SPA
 ├── backend/                                # FastAPI User Portal Backend (Port 8080, geapphub_user DB)
 ├── deploy/
-│   ├── deploy_user_portal_gcp.sh           # Automated GCP deployment script
-│   └── terraform/                          # Terraform IaC (Cloud Run, Cloud SQL HA, Internal ALB, Secret Manager)
+│   ├── config.env.example                  # User-supplied GCP & GitHub repo configuration template
+│   ├── deploy_user_portal_gcp.sh           # Automated GCP deployment script (supports GitHub repo & local source)
+│   └── terraform/                          # Terraform IaC (Cloud Run, Cloud SQL HA, Internal ALB, Secret Manager, GitHub CI)
 └── docs/
     ├── USER_PORTAL_GCP_DEPLOYMENT_GUIDE.md # This deployment guide
     └── user-portal-gcp-deployment-design.md # Architecture & security specification
@@ -24,19 +25,44 @@ user-portal/
 
 ---
 
-## 2. Prerequisites & Environment Variables
+## 2. Prerequisites & Configuration (`user-portal/deploy/config.env`)
 
-1. **Set Your Required Environment Variables**:
+1. **Create Your Deployment Configuration File (`user-portal/deploy/config.env`)**:
+   Copy [`user-portal/deploy/config.env.example`](../deploy/config.env.example) to `user-portal/deploy/config.env` and set your **GCP Project ID**, **GitHub Repository**, and **Google OAuth 2.0** settings:
    ```bash
+   cp user-portal/deploy/config.env.example user-portal/deploy/config.env
+   ```
+   Edit `user-portal/deploy/config.env`:
+   ```bash
+   # 1. Target Google Cloud Project & Region (Required)
    export GCP_PROJECT_ID="<YOUR_GCP_PROJECT_ID>"
-   export GCP_REGION="<YOUR_GCP_REGION>"             # e.g., us-central1
+   export GCP_REGION="us-central1"
+
+   # 2. GitHub Repository Configuration (Used for GitHub source checkout & Cloud Build GitHub Trigger)
+   export GITHUB_REPO_URL="https://github.com/<YOUR_GITHUB_ORG_OR_USER>/<YOUR_GITHUB_REPO>.git"
+   export GITHUB_REPO_OWNER="<YOUR_GITHUB_ORG_OR_USER>"
+   export GITHUB_REPO_NAME="<YOUR_GITHUB_REPO>"
+   export GITHUB_BRANCH="main"
+
+   # 3. Artifact Registry Configuration
    export AR_REPO="ge-user-portal-repo"
    export IMAGE_NAME="ge-user-portal"
    export IMAGE_TAG="latest"
+
+   # 4. Google OAuth 2.0 Web Client Credentials (stored in GCP Secret Manager)
+   export GOOGLE_CLIENT_ID="<YOUR_OAUTH_CLIENT_ID>.apps.googleusercontent.com"
+   export GOOGLE_CLIENT_SECRET="<YOUR_OAUTH_CLIENT_SECRET>"
    ```
 
-2. **Authenticate `gcloud` and Application Default Credentials (ADC)**:
+2. **Push the Repository to GitHub (if initializing a new GitHub repository)**:
    ```bash
+   git remote add origin "https://github.com/<YOUR_GITHUB_ORG_OR_USER>/<YOUR_GITHUB_REPO>.git"
+   git push -u origin main
+   ```
+
+3. **Authenticate `gcloud` and Application Default Credentials (ADC)**:
+   ```bash
+   source user-portal/deploy/config.env
    gcloud auth login
    gcloud auth application-default login
    gcloud config set project "${GCP_PROJECT_ID}"
@@ -44,18 +70,12 @@ user-portal/
 
 ---
 
-## 3. Option A: Automated Deployment (`deploy_user_portal_gcp.sh`)
+## 3. Option A: Automated Deployment from GitHub or Local Config (`deploy_user_portal_gcp.sh`)
 
-Run [`user-portal/deploy/deploy_user_portal_gcp.sh`](../deploy/deploy_user_portal_gcp.sh). The script validates that `GCP_PROJECT_ID` is set (exiting immediately if unset), enables required APIs, builds the image via Cloud Build, stores OAuth credentials in **GCP Secret Manager**, and deploys the Cloud Run service and 15-minute sync job:
+Run [`user-portal/deploy/deploy_user_portal_gcp.sh`](../deploy/deploy_user_portal_gcp.sh). It automatically loads `user-portal/deploy/config.env`, clones `GITHUB_REPO_URL` (`GITHUB_BRANCH`) when configured, builds the container image via Cloud Build, creates the Cloud Build GitHub CI/CD Trigger (`ge-user-portal-github-ci`), stores OAuth credentials in **GCP Secret Manager**, and deploys the Cloud Run service and 15-minute sync job:
 
 ```bash
 chmod +x user-portal/deploy/deploy_user_portal_gcp.sh
-
-export GCP_PROJECT_ID="<YOUR_GCP_PROJECT_ID>"
-export GCP_REGION="us-central1"
-export GOOGLE_CLIENT_ID="<YOUR_OAUTH_CLIENT_ID>.apps.googleusercontent.com"
-export GOOGLE_CLIENT_SECRET="<YOUR_OAUTH_CLIENT_SECRET>"
-
 ./user-portal/deploy/deploy_user_portal_gcp.sh
 ```
 
@@ -202,6 +222,10 @@ terraform plan \
   -var="project_id=${GCP_PROJECT_ID}" \
   -var="region=${GCP_REGION}" \
   -var="container_image=${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/ge-user-portal-repo/ge-user-portal:latest" \
+  -var="github_repo_url=${GITHUB_REPO_URL}" \
+  -var="github_repo_owner=${GITHUB_REPO_OWNER}" \
+  -var="github_repo_name=${GITHUB_REPO_NAME}" \
+  -var="github_branch=${GITHUB_BRANCH}" \
   -var="vpc_network_id=projects/${GCP_PROJECT_ID}/global/networks/<YOUR_VPC_NAME>" \
   -var="vpc_egress_subnet_id=projects/${GCP_PROJECT_ID}/regions/${GCP_REGION}/subnetworks/<YOUR_EGRESS_SUBNET>" \
   -var="ilb_subnet_id=projects/${GCP_PROJECT_ID}/regions/${GCP_REGION}/subnetworks/<YOUR_ILB_SUBNET>" \

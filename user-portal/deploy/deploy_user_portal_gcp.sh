@@ -1,27 +1,59 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # End-to-End GCP Deployment Script for Gemini AI Hub — User Portal
-# Requires GCP_PROJECT_ID to be explicitly set by the user (no hardcoded values).
+# Supports loading configuration from user-portal/deploy/config.env and building
+# either from a configured GitHub repository (GITHUB_REPO_URL) or local source.
 # ==============================================================================
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PORTAL_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-: "${GCP_PROJECT_ID:?ERROR: GCP_PROJECT_ID must be set (e.g., export GCP_PROJECT_ID=<your-gcp-project-id>)}"
+if [[ -f "${SCRIPT_DIR}/config.env" ]]; then
+  echo "Loading deployment configuration from ${SCRIPT_DIR}/config.env..."
+  # shellcheck disable=SC1091
+  source "${SCRIPT_DIR}/config.env"
+fi
+
+: "${GCP_PROJECT_ID:?ERROR: GCP_PROJECT_ID must be set in user-portal/deploy/config.env or environment (e.g., export GCP_PROJECT_ID=<your-gcp-project-id>)}"
 PROJECT_ID="${GCP_PROJECT_ID}"
 REGION="${GCP_REGION:-us-central1}"
 AR_REPO="${AR_REPO:-ge-user-portal-repo}"
 IMAGE_NAME="${IMAGE_NAME:-ge-user-portal}"
 IMAGE_TAG="${IMAGE_TAG:-latest}"
+GITHUB_REPO_URL="${GITHUB_REPO_URL:-}"
+GITHUB_REPO_OWNER="${GITHUB_REPO_OWNER:-}"
+GITHUB_REPO_NAME="${GITHUB_REPO_NAME:-}"
+GITHUB_BRANCH="${GITHUB_BRANCH:-main}"
 IMAGE_URI="${REGION}-docker.pkg.dev/${PROJECT_ID}/${AR_REPO}/${IMAGE_NAME}:${IMAGE_TAG}"
+
+BUILD_SOURCE_DIR="${PORTAL_DIR}"
+TEMP_CLONE_DIR=""
+cleanup() {
+  if [[ -n "${TEMP_CLONE_DIR}" && -d "${TEMP_CLONE_DIR}" ]]; then
+    rm -rf "${TEMP_CLONE_DIR}"
+  fi
+}
+trap cleanup EXIT
+
+if [[ -n "${GITHUB_REPO_URL}" ]]; then
+  echo "Cloning GitHub repository ${GITHUB_REPO_URL} (branch: ${GITHUB_BRANCH})..."
+  TEMP_CLONE_DIR="$(mktemp -d)"
+  git clone --depth 1 --branch "${GITHUB_BRANCH}" "${GITHUB_REPO_URL}" "${TEMP_CLONE_DIR}"
+  if [[ -d "${TEMP_CLONE_DIR}/user-portal" ]]; then
+    BUILD_SOURCE_DIR="${TEMP_CLONE_DIR}/user-portal"
+  else
+    BUILD_SOURCE_DIR="${TEMP_CLONE_DIR}"
+  fi
+fi
 
 echo "=================================================================="
 echo " Deploying Gemini AI Hub — User Portal to GCP"
-echo " Source Dir : ${PORTAL_DIR}"
-echo " Project    : ${PROJECT_ID}"
-echo " Region     : ${REGION}"
-echo " Image      : ${IMAGE_URI}"
+echo " Source Dir  : ${BUILD_SOURCE_DIR}"
+echo " GitHub Repo : ${GITHUB_REPO_URL:-<local working copy>}"
+echo " Project     : ${PROJECT_ID}"
+echo " Region      : ${REGION}"
+echo " Image       : ${IMAGE_URI}"
 echo "=================================================================="
 
 # 1. Enable Required Google Cloud APIs
@@ -70,13 +102,29 @@ gcloud iam service-accounts describe "sa-user-portal-sync@${PROJECT_ID}.iam.gser
   gcloud iam service-accounts create sa-user-portal-sync --display-name="Gemini AI Hub User Portal Catalog Sync SA" --project="${PROJECT_ID}" --quiet
 
 # 3. Build & Push User Portal Container Image via Cloud Build
-echo "[Step 3/5] Building and pushing user-portal/Dockerfile via Cloud Build..."
-cd "${PORTAL_DIR}"
+echo "[Step 3/5] Building and pushing User Portal container image via Cloud Build..."
+cd "${BUILD_SOURCE_DIR}"
 gcloud builds submit \
   --config=cloudbuild.yaml \
   --substitutions="_REGION=${REGION},_AR_REPO=${AR_REPO},_IMAGE_NAME=${IMAGE_NAME},_TAG=${IMAGE_TAG}" \
   --project="${PROJECT_ID}" \
   --quiet
+
+# Optional: Configure Cloud Build GitHub Trigger if GITHUB_REPO_OWNER and GITHUB_REPO_NAME are provided
+if [[ -n "${GITHUB_REPO_OWNER}" && -n "${GITHUB_REPO_NAME}" ]]; then
+  echo "Configuring Cloud Build GitHub Trigger for ${GITHUB_REPO_OWNER}/${GITHUB_REPO_NAME} (${GITHUB_BRANCH})..."
+  gcloud builds triggers describe ge-user-portal-github-ci --region="${REGION}" --project="${PROJECT_ID}" --quiet >/dev/null 2>&1 || \
+    gcloud builds triggers create github \
+      --name="ge-user-portal-github-ci" \
+      --region="${REGION}" \
+      --project="${PROJECT_ID}" \
+      --repo-owner="${GITHUB_REPO_OWNER}" \
+      --repo-name="${GITHUB_REPO_NAME}" \
+      --branch-pattern="^${GITHUB_BRANCH}$" \
+      --build-config="user-portal/cloudbuild.yaml" \
+      --included-files="user-portal/**" \
+      --quiet || true
+fi
 
 # 4. Provision Infrastructure via Terraform (or Direct Cloud Run + Secret Manager Deployment)
 if [[ -n "${VPC_NETWORK_ID:-}" && -n "${VPC_EGRESS_SUBNET_ID:-}" && -n "${ILB_SUBNET_ID:-}" && -n "${SSL_CERTIFICATE_ID:-}" && -n "${INTERNAL_DOMAIN_NAME:-}" && -n "${PRIVATE_DNS_ZONE_NAME:-}" ]]; then
@@ -86,6 +134,10 @@ if [[ -n "${VPC_NETWORK_ID:-}" && -n "${VPC_EGRESS_SUBNET_ID:-}" && -n "${ILB_SU
     -var="project_id=${PROJECT_ID}" \
     -var="region=${REGION}" \
     -var="container_image=${IMAGE_URI}" \
+    -var="github_repo_url=${GITHUB_REPO_URL}" \
+    -var="github_repo_owner=${GITHUB_REPO_OWNER}" \
+    -var="github_repo_name=${GITHUB_REPO_NAME}" \
+    -var="github_branch=${GITHUB_BRANCH}" \
     -var="vpc_network_id=${VPC_NETWORK_ID}" \
     -var="vpc_egress_subnet_id=${VPC_EGRESS_SUBNET_ID}" \
     -var="ilb_subnet_id=${ILB_SUBNET_ID}" \

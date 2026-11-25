@@ -27,6 +27,7 @@ admin-portal/frontend/package-lock.json
 .env.local
 *.db
 config.env
+!user-portal/deploy/config.env.example
 infra/configs/*.env
 !infra/configs/*.env.example
 logs/

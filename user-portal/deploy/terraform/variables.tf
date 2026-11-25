@@ -9,6 +9,30 @@ variable "region" {
   default     = "us-central1"
 }
 
+variable "github_repo_url" {
+  description = "GitHub repository HTTPS or SSH URL hosting the User Portal source code"
+  type        = string
+  default     = ""
+}
+
+variable "github_repo_owner" {
+  description = "GitHub organization or user name owning the repository (for Cloud Build GitHub Trigger)"
+  type        = string
+  default     = ""
+}
+
+variable "github_repo_name" {
+  description = "GitHub repository name (for Cloud Build GitHub Trigger)"
+  type        = string
+  default     = ""
+}
+
+variable "github_branch" {
+  description = "GitHub branch pattern that triggers automated builds and deployments"
+  type        = string
+  default     = "main"
+}
+
 variable "vpc_network_id" {
   description = "Self-link or ID of the shared/existing VPC network"
   type        = string
