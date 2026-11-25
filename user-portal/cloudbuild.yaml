@@ -11,24 +11,33 @@ substitutions:
 steps:
   - id: build-user-portal-image
     name: gcr.io/cloud-builders/docker
+    entrypoint: bash
     args:
-      - build
-      - -f
-      - Dockerfile
-      - -t
-      - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_IMAGE_NAME}:${_TAG}
-      - .
+      - -c
+      - |
+        REGION="${_REGION}"
+        AR_REPO="${_AR_REPO}"
+        IMAGE_NAME="${_IMAGE_NAME}"
+        TAG="${_TAG}"
+        IMAGE_URI="$${REGION:-us-central1}-docker.pkg.dev/${PROJECT_ID}/$${AR_REPO:-ge-user-portal-repo}/$${IMAGE_NAME:-ge-user-portal}:$${TAG:-latest}"
+        echo "Building container image: $${IMAGE_URI}"
+        docker build -f Dockerfile -t "$${IMAGE_URI}" .
 
   - id: push-user-portal-image
     name: gcr.io/cloud-builders/docker
+    entrypoint: bash
     waitFor:
       - build-user-portal-image
     args:
-      - push
-      - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_IMAGE_NAME}:${_TAG}
-
-images:
-  - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_IMAGE_NAME}:${_TAG}
+      - -c
+      - |
+        REGION="${_REGION}"
+        AR_REPO="${_AR_REPO}"
+        IMAGE_NAME="${_IMAGE_NAME}"
+        TAG="${_TAG}"
+        IMAGE_URI="$${REGION:-us-central1}-docker.pkg.dev/${PROJECT_ID}/$${AR_REPO:-ge-user-portal-repo}/$${IMAGE_NAME:-ge-user-portal}:$${TAG:-latest}"
+        echo "Pushing container image: $${IMAGE_URI}"
+        docker push "$${IMAGE_URI}"
 
 options:
   logging: CLOUD_LOGGING_ONLY
