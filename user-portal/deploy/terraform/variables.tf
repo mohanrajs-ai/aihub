@@ -33,30 +33,6 @@ variable "internal_domain_name" {
   default     = "aihub.internal.corp"
 }
 
-variable "github_repo_url" {
-  description = "GitHub repository HTTPS or SSH URL hosting the User Portal source code"
-  type        = string
-  default     = ""
-}
-
-variable "github_repo_owner" {
-  description = "GitHub organization or user name owning the repository (for Cloud Build GitHub Trigger)"
-  type        = string
-  default     = ""
-}
-
-variable "github_repo_name" {
-  description = "GitHub repository name (for Cloud Build GitHub Trigger)"
-  type        = string
-  default     = ""
-}
-
-variable "github_branch" {
-  description = "GitHub branch pattern that triggers automated builds and deployments"
-  type        = string
-  default     = "main"
-}
-
 variable "subnet_cidr" {
   description = "Primary CIDR range for the User Portal Direct VPC Egress & Internal ALB VIP subnet"
   type        = string

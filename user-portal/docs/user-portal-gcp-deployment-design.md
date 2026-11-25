@@ -15,7 +15,7 @@ This document defines the production Google Cloud Platform (GCP) deployment arch
 | **7. Access & AGY License Requests** | Persisted in the **`access_requests` PostgreSQL table** (`AccessRequestRecord`) inside `geapphub_user` for Admin Console fulfillment and auditability. |
 | **8. Cloud Run Sizing & Scaling** | **Warm Production Profile**: `min_instance_count = 1` (zero cold start), `max_instance_count = 10`, `2 vCPU`, `1 GiB RAM`, `max_instance_request_concurrency = 80`. |
 | **9. IAM & Secret Management** | Two dedicated least-privilege service accounts (**`sa-user-portal-web`** and **`sa-user-portal-sync`**) with OAuth & DB secrets injected natively from **GCP Secret Manager**. |
-| **10. CI/CD & IaC Delivery** | **GitHub Repository (`GITHUB_REPO_URL`)** -> **Cloud Build GitHub Trigger (`ge-user-portal-github-ci`, `user-portal/cloudbuild.yaml`)** -> **Artifact Registry** -> **Terraform Stack (`user-portal/deploy/terraform/`)**. |
+| **10. CI/CD & IaC Delivery** | **GCS Source Staging Bucket (`gs://${GCP_PROJECT_ID}-user-portal-source`)** -> **Cloud Build (`user-portal/cloudbuild.yaml`)** -> **Artifact Registry (`ge-user-portal-repo`)** -> **Terraform Stack (`user-portal/deploy/terraform/`)**. |
 
 ---
 

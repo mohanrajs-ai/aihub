@@ -526,34 +526,3 @@ resource "google_dns_record_set" "user_portal_dns_a" {
   ttl          = 300
   rrdatas      = [google_compute_address.user_portal_internal_vip.address]
 }
-
-# ============================================================================
-# 8. Optional Cloud Build GitHub Trigger (CI/CD from GitHub Repository)
-# ============================================================================
-
-resource "google_cloudbuild_trigger" "user_portal_github_ci" {
-  count       = var.github_repo_owner != "" && var.github_repo_name != "" ? 1 : 0
-  name        = "ge-user-portal-github-ci"
-  description = "Builds and pushes Gemini AI Hub User Portal from GitHub (${var.github_repo_owner}/${var.github_repo_name})"
-  location    = var.region
-  filename    = "user-portal/cloudbuild.yaml"
-
-  included_files = [
-    "user-portal/**",
-  ]
-
-  github {
-    owner = var.github_repo_owner
-    name  = var.github_repo_name
-    push {
-      branch = "^${var.github_branch}$"
-    }
-  }
-
-  substitutions = {
-    _REGION     = var.region
-    _AR_REPO    = google_artifact_registry_repository.user_portal_repo.repository_id
-    _IMAGE_NAME = "ge-user-portal"
-    _TAG        = "latest"
-  }
-}

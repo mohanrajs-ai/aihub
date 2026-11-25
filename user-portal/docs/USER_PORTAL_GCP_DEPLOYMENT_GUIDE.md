@@ -47,7 +47,7 @@ cd <YOUR_GITHUB_REPO>
 3. Copy the generated **Client ID** (`*.apps.googleusercontent.com`) and **Client Secret** (`GOCSPX-*`). *(Terraform automatically creates the Secret Manager secrets, stores their versions, and mounts them into Cloud Run.)*
 
 ### Step 3: Configure `user-portal/deploy/config.env`
-Copy [`user-portal/deploy/config.env.example`](../deploy/config.env.example) to `user-portal/deploy/config.env` and set your project, GitHub repository, OAuth credentials, and desired internal domain name:
+Copy [`user-portal/deploy/config.env.example`](../deploy/config.env.example) to `user-portal/deploy/config.env` and set your project, OAuth credentials, and desired internal domain name:
 
 ```bash
 cp user-portal/deploy/config.env.example user-portal/deploy/config.env
@@ -59,22 +59,11 @@ Edit `user-portal/deploy/config.env`:
 export GCP_PROJECT_ID="<YOUR_GCP_PROJECT_ID>"
 export GCP_REGION="us-central1"
 
-# 2. GitHub Repository Configuration (Used for Cloud Build CI/CD trigger)
-export GITHUB_REPO_URL="https://github.com/<YOUR_GITHUB_ORG_OR_USER>/<YOUR_GITHUB_REPO>.git"
-export GITHUB_REPO_OWNER="<YOUR_GITHUB_ORG_OR_USER>"
-export GITHUB_REPO_NAME="<YOUR_GITHUB_REPO>"
-export GITHUB_BRANCH="main"
-
-# 3. Artifact Registry Configuration
-export AR_REPO="ge-user-portal-repo"
-export IMAGE_NAME="ge-user-portal"
-export IMAGE_TAG="latest"
-
-# 4. Google OAuth 2.0 Web Client Credentials (automatically stored in GCP Secret Manager by Terraform)
+# 2. Google OAuth 2.0 Web Client Credentials (automatically stored in GCP Secret Manager by Terraform)
 export GOOGLE_CLIENT_ID="<YOUR_OAUTH_CLIENT_ID>.apps.googleusercontent.com"
 export GOOGLE_CLIENT_SECRET="<YOUR_OAUTH_CLIENT_SECRET>"
 
-# 5. Internal Domain Name (SSL Certificate & Cloud DNS Private Zone are created automatically by Terraform)
+# 3. Internal Domain Name (SSL Certificate & Cloud DNS Private Zone are created automatically by Terraform)
 export INTERNAL_DOMAIN_NAME="aihub.internal.corp"
 ```
 
@@ -163,7 +152,6 @@ terraform apply \
 | **Cloud Run Web & Sync Job** | `google_cloud_run_v2_service.user_portal_web` (`min=1`, `max=10`, `2 vCPU`, `1 GiB`, Secret Manager `secret_key_ref` mounts), `google_cloud_run_v2_job.user_portal_sync_job`, `google_cloud_scheduler_job.user_portal_sync_schedule` (`*/15 * * * *`) |
 | **Automated SSL & Internal ALB** | `google_privateca_ca_pool.user_portal_ca_pool` + `google_privateca_certificate_authority.user_portal_root_ca` + `google_certificate_manager_certificate.user_portal_ssl_cert` bound to `google_compute_region_target_https_proxy.user_portal_https_proxy` & `google_compute_forwarding_rule.user_portal_https_fw_rule` (`INTERNAL_MANAGED`) |
 | **Automated Private Cloud DNS** | `google_dns_managed_zone.private_zone` (Private DNS Zone bound to `vpc-ge-user-portal`) + `google_dns_record_set.user_portal_dns_a` (`A` record pointing `${INTERNAL_DOMAIN_NAME}` to the Internal ALB VIP) |
-| **GitHub CI/CD Trigger** | `google_cloudbuild_trigger.user_portal_github_ci` (Builds `user-portal/cloudbuild.yaml` on pushes to `GITHUB_BRANCH`) |
 
 ---
 

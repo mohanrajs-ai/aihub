@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # Fully Automated GCP Deployment Script for Gemini AI Hub — User Portal
-# Prerequisite: Clone the GitHub repository manually first, configure
+# Prerequisite: Clone the repository manually first, configure
 # user-portal/deploy/config.env, and run this script from the cloned repo.
 # Automates:
-#   1. Container build & push via Cloud Build (user-portal/cloudbuild.yaml)
+#   1. Syncing User Portal source to GCS & building container image via Cloud Build
 #   2. Full Terraform provisioning (user-portal/deploy/terraform/):
 #      - GCP APIs, VPC, Subnets, Proxy-Only Subnet & Private Services Access
 #      - Automated CAS Private CA & Regional Certificate Manager TLS Certificate
@@ -12,7 +12,7 @@
 #      - Cloud SQL for PostgreSQL 16 (REGIONAL HA, Private IP, PITR)
 #      - GCP Secret Manager secrets & versions (OAuth Client ID/Secret, Session Secret, DB URL)
 #      - Cloud Run v2 Service (ge-user-portal-web) & 15-min Sync Job + Cloud Scheduler
-#      - Regional Internal HTTPS Application Load Balancer & GitHub Cloud Build Trigger
+#      - Regional Internal HTTPS Application Load Balancer
 # ==============================================================================
 set -euo pipefail
 
@@ -28,14 +28,10 @@ fi
 : "${GCP_PROJECT_ID:?ERROR: GCP_PROJECT_ID must be set in user-portal/deploy/config.env or environment (e.g., export GCP_PROJECT_ID=<your-gcp-project-id>)}"
 PROJECT_ID="${GCP_PROJECT_ID}"
 REGION="${GCP_REGION:-us-central1}"
-GCS_SOURCE_BUCKET="${GCS_SOURCE_BUCKET:-${PROJECT_ID}-user-portal-source}"
-AR_REPO="${AR_REPO:-ge-user-portal-repo}"
-IMAGE_NAME="${IMAGE_NAME:-ge-user-portal}"
-IMAGE_TAG="${IMAGE_TAG:-latest}"
-GITHUB_REPO_URL="${GITHUB_REPO_URL:-}"
-GITHUB_REPO_OWNER="${GITHUB_REPO_OWNER:-}"
-GITHUB_REPO_NAME="${GITHUB_REPO_NAME:-}"
-GITHUB_BRANCH="${GITHUB_BRANCH:-main}"
+GCS_SOURCE_BUCKET="${PROJECT_ID}-user-portal-source"
+AR_REPO="ge-user-portal-repo"
+IMAGE_NAME="ge-user-portal"
+IMAGE_TAG="latest"
 INTERNAL_DOMAIN_NAME="${INTERNAL_DOMAIN_NAME:-aihub.internal.corp}"
 IMAGE_URI="${REGION}-docker.pkg.dev/${PROJECT_ID}/${AR_REPO}/${IMAGE_NAME}:${IMAGE_TAG}"
 
@@ -125,11 +121,7 @@ terraform -chdir="${PORTAL_DIR}/deploy/terraform" apply -auto-approve \
   -var="container_image=${IMAGE_URI}" \
   -var="google_client_id=${GOOGLE_CLIENT_ID:-}" \
   -var="google_client_secret=${GOOGLE_CLIENT_SECRET:-}" \
-  -var="internal_domain_name=${INTERNAL_DOMAIN_NAME}" \
-  -var="github_repo_url=${GITHUB_REPO_URL}" \
-  -var="github_repo_owner=${GITHUB_REPO_OWNER}" \
-  -var="github_repo_name=${GITHUB_REPO_NAME}" \
-  -var="github_branch=${GITHUB_BRANCH}"
+  -var="internal_domain_name=${INTERNAL_DOMAIN_NAME}"
 
 echo "=================================================================="
 echo " Deployment Complete!"
