@@ -29,16 +29,24 @@ user-portal/
 
 ---
 
-## 2. Prerequisites & Configuration (`user-portal/deploy/config.env`)
+## 2. Manual Prerequisites (Clone Repository, OAuth Client & `config.env`)
 
-### Step 1: Create Google OAuth 2.0 Web Client Credentials
+### Step 1: Clone the GitHub Repository Manually
+Clone the repository to your workstation or Cloud Shell before running the deployment automation:
+
+```bash
+git clone https://github.com/<YOUR_GITHUB_ORG_OR_USER>/<YOUR_GITHUB_REPO>.git
+cd <YOUR_GITHUB_REPO>
+```
+
+### Step 2: Create Google OAuth 2.0 Web Client Credentials
 1. Open **Google Cloud Console -> APIs & Services -> Credentials** (`https://console.cloud.google.com/apis/credentials?project=<YOUR_GCP_PROJECT_ID>`).
 2. Click **+ Create Credentials -> OAuth client ID** (`Web application`):
    - **Authorized JavaScript origins**: `https://<YOUR_INTERNAL_DOMAIN_OR_CLOUD_RUN_URL>`
    - **Authorized redirect URIs**: `https://<YOUR_INTERNAL_DOMAIN_OR_CLOUD_RUN_URL>/api/v1/auth/google/callback`
 3. Copy the generated **Client ID** (`*.apps.googleusercontent.com`) and **Client Secret** (`GOCSPX-*`). *(Terraform automatically creates the Secret Manager secrets, stores their versions, and mounts them into Cloud Run.)*
 
-### Step 2: Configure `user-portal/deploy/config.env`
+### Step 3: Configure `user-portal/deploy/config.env`
 Copy [`user-portal/deploy/config.env.example`](../deploy/config.env.example) to `user-portal/deploy/config.env` and set your project, GitHub repository, OAuth credentials, and desired internal domain name:
 
 ```bash
@@ -51,7 +59,7 @@ Edit `user-portal/deploy/config.env`:
 export GCP_PROJECT_ID="<YOUR_GCP_PROJECT_ID>"
 export GCP_REGION="us-central1"
 
-# 2. GitHub Repository Configuration (Used for GitHub source checkout & Cloud Build CI/CD trigger)
+# 2. GitHub Repository Configuration (Used for Cloud Build CI/CD trigger)
 export GITHUB_REPO_URL="https://github.com/<YOUR_GITHUB_ORG_OR_USER>/<YOUR_GITHUB_REPO>.git"
 export GITHUB_REPO_OWNER="<YOUR_GITHUB_ORG_OR_USER>"
 export GITHUB_REPO_NAME="<YOUR_GITHUB_REPO>"
@@ -70,7 +78,7 @@ export GOOGLE_CLIENT_SECRET="<YOUR_OAUTH_CLIENT_SECRET>"
 export INTERNAL_DOMAIN_NAME="aihub.internal.corp"
 ```
 
-### Step 3: Authenticate `gcloud` and Application Default Credentials (ADC)
+### Step 4: Authenticate `gcloud` and Application Default Credentials (ADC)
 ```bash
 source user-portal/deploy/config.env
 gcloud auth login
@@ -82,7 +90,7 @@ gcloud config set project "${GCP_PROJECT_ID}"
 
 ## 3. Option A: 1-Command End-to-End Automated Deployment (`deploy_user_portal_gcp.sh`)
 
-Run [`user-portal/deploy/deploy_user_portal_gcp.sh`](../deploy/deploy_user_portal_gcp.sh). It loads `user-portal/deploy/config.env`, clones `GITHUB_REPO_URL` (if set), builds the container image via Cloud Build, and runs `terraform apply` to provision 100% of the infrastructure automatically:
+From your cloned repository root, run [`user-portal/deploy/deploy_user_portal_gcp.sh`](../deploy/deploy_user_portal_gcp.sh). It loads `user-portal/deploy/config.env`, builds the container image from your local `user-portal/` directory via Cloud Build, and runs `terraform apply` to provision 100% of the infrastructure automatically:
 
 ```bash
 chmod +x user-portal/deploy/deploy_user_portal_gcp.sh

@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # Fully Automated GCP Deployment Script for Gemini AI Hub — User Portal
+# Prerequisite: Clone the GitHub repository manually first, configure
+# user-portal/deploy/config.env, and run this script from the cloned repo.
 # Automates:
-#   1. GitHub repository clone (when GITHUB_REPO_URL is configured) or local build
-#   2. Container build & push via Cloud Build (user-portal/cloudbuild.yaml)
-#   3. Full Terraform provisioning (user-portal/deploy/terraform/):
+#   1. Container build & push via Cloud Build (user-portal/cloudbuild.yaml)
+#   2. Full Terraform provisioning (user-portal/deploy/terraform/):
 #      - GCP APIs, VPC, Subnets, Proxy-Only Subnet & Private Services Access
-#      - Automated TLS Private Key & Regional SSL Certificate (hashicorp/tls)
+#      - Automated CAS Private CA & Regional Certificate Manager TLS Certificate
 #      - Automated Cloud DNS Private Managed Zone & A Record
 #      - Cloud SQL for PostgreSQL 16 (REGIONAL HA, Private IP, PITR)
 #      - GCP Secret Manager secrets & versions (OAuth Client ID/Secret, Session Secret, DB URL)
@@ -37,30 +38,10 @@ GITHUB_BRANCH="${GITHUB_BRANCH:-main}"
 INTERNAL_DOMAIN_NAME="${INTERNAL_DOMAIN_NAME:-aihub.internal.corp}"
 IMAGE_URI="${REGION}-docker.pkg.dev/${PROJECT_ID}/${AR_REPO}/${IMAGE_NAME}:${IMAGE_TAG}"
 
-BUILD_SOURCE_DIR="${PORTAL_DIR}"
-TEMP_CLONE_DIR=""
-cleanup() {
-  if [[ -n "${TEMP_CLONE_DIR}" && -d "${TEMP_CLONE_DIR}" ]]; then
-    rm -rf "${TEMP_CLONE_DIR}"
-  fi
-}
-trap cleanup EXIT
-
-if [[ -n "${GITHUB_REPO_URL}" ]]; then
-  echo "Cloning GitHub repository ${GITHUB_REPO_URL} (branch: ${GITHUB_BRANCH})..."
-  TEMP_CLONE_DIR="$(mktemp -d)"
-  git clone --depth 1 --branch "${GITHUB_BRANCH}" "${GITHUB_REPO_URL}" "${TEMP_CLONE_DIR}"
-  if [[ -d "${TEMP_CLONE_DIR}/user-portal" ]]; then
-    BUILD_SOURCE_DIR="${TEMP_CLONE_DIR}/user-portal"
-  else
-    BUILD_SOURCE_DIR="${TEMP_CLONE_DIR}"
-  fi
-fi
-
 echo "=================================================================="
 echo " Deploying Gemini AI Hub — User Portal to GCP (100% Automated)"
-echo " Source Dir      : ${BUILD_SOURCE_DIR}"
-echo " GitHub Repo     : ${GITHUB_REPO_URL:-<local working copy>}"
+echo " Source Dir      : ${PORTAL_DIR}"
+echo " GitHub Repo     : ${GITHUB_REPO_URL:-<not set>}"
 echo " Project         : ${PROJECT_ID}"
 echo " Region          : ${REGION}"
 echo " Internal Domain : ${INTERNAL_DOMAIN_NAME}"
@@ -97,7 +78,7 @@ done
 
 # 2. Build & Push User Portal Container Image via Cloud Build
 echo "[Step 2/3] Building and pushing User Portal container image via Cloud Build..."
-cd "${BUILD_SOURCE_DIR}"
+cd "${PORTAL_DIR}"
 gcloud builds submit \
   --config=cloudbuild.yaml \
   --substitutions="_REGION=${REGION},_AR_REPO=${AR_REPO},_IMAGE_NAME=${IMAGE_NAME},_TAG=${IMAGE_TAG}" \
