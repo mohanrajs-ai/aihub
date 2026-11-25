@@ -28,6 +28,7 @@ fi
 : "${GCP_PROJECT_ID:?ERROR: GCP_PROJECT_ID must be set in user-portal/deploy/config.env or environment (e.g., export GCP_PROJECT_ID=<your-gcp-project-id>)}"
 PROJECT_ID="${GCP_PROJECT_ID}"
 REGION="${GCP_REGION:-us-central1}"
+GCS_SOURCE_BUCKET="${GCS_SOURCE_BUCKET:-${PROJECT_ID}-user-portal-source}"
 AR_REPO="${AR_REPO:-ge-user-portal-repo}"
 IMAGE_NAME="${IMAGE_NAME:-ge-user-portal}"
 IMAGE_TAG="${IMAGE_TAG:-latest}"
@@ -41,20 +42,31 @@ IMAGE_URI="${REGION}-docker.pkg.dev/${PROJECT_ID}/${AR_REPO}/${IMAGE_NAME}:${IMA
 echo "=================================================================="
 echo " Deploying Gemini AI Hub — User Portal to GCP (100% Automated)"
 echo " Source Dir      : ${PORTAL_DIR}"
-echo " GitHub Repo     : ${GITHUB_REPO_URL:-<not set>}"
+echo " GCS Source Bkt  : gs://${GCS_SOURCE_BUCKET}"
 echo " Project         : ${PROJECT_ID}"
 echo " Region          : ${REGION}"
 echo " Internal Domain : ${INTERNAL_DOMAIN_NAME}"
 echo " Image           : ${IMAGE_URI}"
 echo "=================================================================="
 
-# 1. Bootstrap Cloud Build & Artifact Registry APIs + Repository for Container Build
-echo "[Step 1/3] Bootstrapping Cloud Build & Artifact Registry '${AR_REPO}'..."
+# 1. Bootstrap Cloud Build, Cloud Storage & Artifact Registry
+echo "[Step 1/3] Bootstrapping GCS Source Bucket 'gs://${GCS_SOURCE_BUCKET}' & Artifact Registry '${AR_REPO}'..."
 gcloud services enable \
+  storage.googleapis.com \
   cloudbuild.googleapis.com \
   artifactregistry.googleapis.com \
   --project="${PROJECT_ID}" \
   --quiet
+
+if ! gcloud storage buckets describe "gs://${GCS_SOURCE_BUCKET}" \
+  --project="${PROJECT_ID}" \
+  --quiet >/dev/null 2>&1; then
+  gcloud storage buckets create "gs://${GCS_SOURCE_BUCKET}" \
+    --location="${REGION}" \
+    --uniform-bucket-level-access \
+    --project="${PROJECT_ID}" \
+    --quiet
+fi
 
 if ! gcloud artifacts repositories describe "${AR_REPO}" \
   --location="${REGION}" \
@@ -76,11 +88,30 @@ for ROLE in roles/storage.objectAdmin roles/artifactregistry.writer roles/loggin
     --role="${ROLE}" --condition=None --quiet >/dev/null
 done
 
-# 2. Build & Push User Portal Container Image via Cloud Build
-echo "[Step 2/3] Building and pushing User Portal container image via Cloud Build..."
-cd "${PORTAL_DIR}"
-gcloud builds submit \
-  --config=cloudbuild.yaml \
+# 2. Sync Source Code to GCS & Submit Cloud Build from GCS Archive
+echo "[Step 2/3] Syncing User Portal source to gs://${GCS_SOURCE_BUCKET}/src/ and building image from GCS..."
+gcloud storage rsync -r --delete-unmatched-destination-objects \
+  --exclude='(\.git|node_modules|__pycache__|\.pytest_cache|dist|\.terraform).*' \
+  "${PORTAL_DIR}" "gs://${GCS_SOURCE_BUCKET}/src" \
+  --project="${PROJECT_ID}" \
+  --quiet
+
+ARCHIVE_FILE="$(mktemp /tmp/user-portal-source.XXXXXX.tgz)"
+trap 'rm -f "${ARCHIVE_FILE}"' EXIT
+tar -czf "${ARCHIVE_FILE}" \
+  --exclude="node_modules" \
+  --exclude="__pycache__" \
+  --exclude=".pytest_cache" \
+  --exclude=".terraform" \
+  -C "${PORTAL_DIR}" .
+
+gcloud storage cp "${ARCHIVE_FILE}" "gs://${GCS_SOURCE_BUCKET}/archives/user-portal-${IMAGE_TAG}.tgz" \
+  --project="${PROJECT_ID}" \
+  --quiet
+
+gcloud builds submit "gs://${GCS_SOURCE_BUCKET}/archives/user-portal-${IMAGE_TAG}.tgz" \
+  --config="${PORTAL_DIR}/cloudbuild.yaml" \
+  --gcs-source-staging-dir="gs://${GCS_SOURCE_BUCKET}/staging" \
   --substitutions="_REGION=${REGION},_AR_REPO=${AR_REPO},_IMAGE_NAME=${IMAGE_NAME},_TAG=${IMAGE_TAG}" \
   --project="${PROJECT_ID}" \
   --quiet

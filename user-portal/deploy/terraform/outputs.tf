@@ -1,3 +1,8 @@
+output "gcs_source_bucket" {
+  description = "GCS bucket used for syncing User Portal source code and staging Cloud Build archives"
+  value       = "gs://${google_storage_bucket.user_portal_source_bucket.name}"
+}
+
 output "internal_load_balancer_vip" {
   description = "Private RFC 1918 IP address of the User Portal Internal Application Load Balancer"
   value       = google_compute_address.user_portal_internal_vip.address

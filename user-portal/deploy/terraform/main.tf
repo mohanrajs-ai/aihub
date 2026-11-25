@@ -72,8 +72,20 @@ resource "google_service_networking_connection" "private_vpc_connection" {
 }
 
 # ============================================================================
-# 2. Artifact Registry & Least-Privilege Service Accounts
+# 2. GCS Source Staging Bucket, Artifact Registry & Service Accounts
 # ============================================================================
+
+resource "google_storage_bucket" "user_portal_source_bucket" {
+  name                        = "${var.project_id}-user-portal-source"
+  location                    = var.region
+  uniform_bucket_level_access = true
+  force_destroy               = true
+  depends_on                  = [google_project_service.enabled_apis]
+
+  versioning {
+    enabled = true
+  }
+}
 
 resource "google_artifact_registry_repository" "user_portal_repo" {
   location      = var.region

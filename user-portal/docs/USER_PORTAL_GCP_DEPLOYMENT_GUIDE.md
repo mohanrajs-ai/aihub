@@ -99,22 +99,48 @@ chmod +x user-portal/deploy/deploy_user_portal_gcp.sh
 
 ---
 
-## 4. Option B: Direct Terraform Execution (`user-portal/deploy/terraform/`)
+## 4. Option B: Sync Source Code to GCS & Build via Cloud Build + Terraform
 
-If you have already built and pushed the container image via [`user-portal/cloudbuild.yaml`](../cloudbuild.yaml), you can run Terraform directly with no manual networking, SSL, DNS, or Secret Manager steps:
+Instead of uploading directly from a local folder without staging, you can sync the `user-portal/` source tree to a dedicated **Google Cloud Storage (GCS) bucket** (`gs://${GCP_PROJECT_ID}-user-portal-source`) and trigger **Cloud Build** directly from the GCS source archive:
 
 ```bash
 source user-portal/deploy/config.env
+export GCS_SOURCE_BUCKET="${GCS_SOURCE_BUCKET:-${GCP_PROJECT_ID}-user-portal-source}"
 
-# 1. Build & push container image via Cloud Build
-cd user-portal
-gcloud builds submit \
-  --config=cloudbuild.yaml \
+# 1. Create the GCS Source Bucket (if not yet created by Terraform)
+gcloud storage buckets describe "gs://${GCS_SOURCE_BUCKET}" --project="${GCP_PROJECT_ID}" >/dev/null 2>&1 || \
+  gcloud storage buckets create "gs://${GCS_SOURCE_BUCKET}" \
+    --location="${GCP_REGION}" \
+    --uniform-bucket-level-access \
+    --project="${GCP_PROJECT_ID}"
+
+# 2. Sync the User Portal source code to GCS (gs://<BUCKET>/src/)
+gcloud storage rsync -r --delete-unmatched-destination-objects \
+  --exclude='(\.git|node_modules|__pycache__|\.pytest_cache|dist|\.terraform).*' \
+  user-portal/ "gs://${GCS_SOURCE_BUCKET}/src" \
+  --project="${GCP_PROJECT_ID}"
+
+# 3. Package the source archive & upload to GCS (gs://<BUCKET>/archives/)
+tar -czf /tmp/user-portal-source.tgz \
+  --exclude="node_modules" \
+  --exclude="__pycache__" \
+  --exclude=".pytest_cache" \
+  --exclude=".terraform" \
+  -C user-portal .
+
+gcloud storage cp /tmp/user-portal-source.tgz \
+  "gs://${GCS_SOURCE_BUCKET}/archives/user-portal-${IMAGE_TAG}.tgz" \
+  --project="${GCP_PROJECT_ID}"
+
+# 4. Trigger Cloud Build directly from the GCS archive
+gcloud builds submit "gs://${GCS_SOURCE_BUCKET}/archives/user-portal-${IMAGE_TAG}.tgz" \
+  --config=user-portal/cloudbuild.yaml \
+  --gcs-source-staging-dir="gs://${GCS_SOURCE_BUCKET}/staging" \
   --substitutions="_REGION=${GCP_REGION},_AR_REPO=${AR_REPO},_IMAGE_NAME=${IMAGE_NAME},_TAG=${IMAGE_TAG}" \
   --project="${GCP_PROJECT_ID}"
 
-# 2. Initialize & apply the complete Terraform stack
-cd deploy/terraform
+# 5. Apply the complete Terraform stack
+cd user-portal/deploy/terraform
 terraform init
 
 terraform apply \
@@ -123,11 +149,7 @@ terraform apply \
   -var="container_image=${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${AR_REPO}/${IMAGE_NAME}:${IMAGE_TAG}" \
   -var="google_client_id=${GOOGLE_CLIENT_ID}" \
   -var="google_client_secret=${GOOGLE_CLIENT_SECRET}" \
-  -var="internal_domain_name=${INTERNAL_DOMAIN_NAME}" \
-  -var="github_repo_url=${GITHUB_REPO_URL}" \
-  -var="github_repo_owner=${GITHUB_REPO_OWNER}" \
-  -var="github_repo_name=${GITHUB_REPO_NAME}" \
-  -var="github_branch=${GITHUB_BRANCH}"
+  -var="internal_domain_name=${INTERNAL_DOMAIN_NAME}"
 ```
 
 ### What Terraform Provisions Automatically (`main.tf`)
