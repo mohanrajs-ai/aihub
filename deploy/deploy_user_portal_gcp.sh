@@ -95,14 +95,15 @@ else
     --image="${IMAGE_URI}" \
     --region="${REGION}" \
     --project="${PROJECT_ID}" \
+    --service-account="sa-user-portal-web@${PROJECT_ID}.iam.gserviceaccount.com" \
     --port=8080 \
     --min-instances=1 \
     --max-instances=10 \
     --cpu=2 \
     --memory=1Gi \
     --concurrency=80 \
-    --ingress=internal-and-cloud-load-balancing \
-    --set-env-vars="GCP_PROJECT_ID=${PROJECT_ID},SYNC_ENABLED=false" \
+    --no-invoker-iam-check \
+    --set-env-vars="GCP_PROJECT_ID=${PROJECT_ID},GCP_LOCATION=global,SYNC_ENABLED=false,SYNC_ON_STARTUP=false" \
     --quiet
 
   gcloud run jobs deploy ge-user-portal-sync-job \
