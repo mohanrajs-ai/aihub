@@ -49,7 +49,8 @@ def get_auth_config() -> models.AuthConfigResponse:
     client_id, _ = auth.get_oauth_client_credentials(settings)
     return models.AuthConfigResponse(
         google_client_id=client_id,
-        sso_redirect_enabled=not settings.use_mock_data,
+        sso_redirect_enabled=bool(settings.google_client_id)
+        and not settings.use_mock_data,
         suggested_users=SUGGESTED_USERS,
     )
 

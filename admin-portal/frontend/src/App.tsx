@@ -180,10 +180,6 @@ export function App(): React.ReactElement {
   async function handleLoginEmail(email: string): Promise<void> {
     setAuthLoading(true);
     setAuthError(null);
-    if (ssoRedirectEnabled) {
-      window.location.assign(buildGoogleSsoLoginUrl(email));
-      return;
-    }
     try {
       const res = await loginWithEmail(email);
       window.sessionStorage.setItem(SESSION_TOKEN_KEY, res.token);

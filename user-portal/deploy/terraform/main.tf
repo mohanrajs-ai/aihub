@@ -12,13 +12,9 @@ locals {
     "servicenetworking.googleapis.com",
     "secretmanager.googleapis.com",
     "cloudscheduler.googleapis.com",
-    "dns.googleapis.com",
-    "privateca.googleapis.com",
-    "certificatemanager.googleapis.com",
     "discoveryengine.googleapis.com",
     "cloudidentity.googleapis.com",
   ])
-  dns_zone_domain        = join(".", slice(split(".", var.internal_domain_name), 1, length(split(".", var.internal_domain_name))))
   generated_db_password  = substr(sha256("${var.project_id}-${var.region}-geapphub-user-db"), 0, 24)
   generated_session_hmac = sha256("${var.project_id}-${var.region}-geapphub-session-secret")
 }
@@ -81,10 +77,6 @@ resource "google_storage_bucket" "user_portal_source_bucket" {
   uniform_bucket_level_access = true
   force_destroy               = true
   depends_on                  = [google_project_service.enabled_apis]
-
-  versioning {
-    enabled = true
-  }
 }
 
 resource "google_artifact_registry_repository" "user_portal_repo" {
@@ -377,78 +369,8 @@ resource "google_cloud_scheduler_job" "user_portal_sync_schedule" {
 }
 
 # ============================================================================
-# 7. Automated Certificate Authority Service (CAS), Regional Cert Manager,
-#    Internal HTTPS Application Load Balancer & Private Cloud DNS Zone
+# 7. Regional Internal Application Load Balancer (SSL & DNS Configured Manually)
 # ============================================================================
-
-resource "google_privateca_ca_pool" "user_portal_ca_pool" {
-  name       = "capool-ge-user-portal"
-  location   = var.region
-  tier       = "DEVOPS"
-  depends_on = [google_project_service.enabled_apis]
-}
-
-resource "google_privateca_certificate_authority" "user_portal_root_ca" {
-  pool                                   = google_privateca_ca_pool.user_portal_ca_pool.name
-  certificate_authority_id               = "ca-ge-user-portal-root"
-  location                               = var.region
-  deletion_protection                    = false
-  skip_grace_period                      = true
-  ignore_active_certificates_on_deletion = true
-
-  config {
-    subject_config {
-      subject {
-        organization = "Gemini AI Hub"
-        common_name  = "Gemini AI Hub Internal Root CA"
-      }
-    }
-    x509_config {
-      ca_options {
-        is_ca = true
-      }
-      key_usage {
-        base_key_usage {
-          cert_sign = true
-          crl_sign  = true
-        }
-        extended_key_usage {
-          server_auth = true
-        }
-      }
-    }
-  }
-
-  key_spec {
-    algorithm = "RSA_PKCS1_2048_SHA256"
-  }
-}
-
-resource "google_certificate_manager_certificate_issuance_config" "user_portal_cert_issuance" {
-  name       = "issuance-ge-user-portal"
-  location   = var.region
-  lifetime   = "2592000s" # 30 days auto-renewed by Certificate Manager
-  rotation_window_percentage = 66
-  key_algorithm              = "RSA_2048"
-  depends_on = [google_privateca_certificate_authority.user_portal_root_ca]
-
-  certificate_authority_config {
-    certificate_authority_service_config {
-      ca_pool = google_privateca_ca_pool.user_portal_ca_pool.id
-    }
-  }
-}
-
-resource "google_certificate_manager_certificate" "user_portal_ssl_cert" {
-  name     = "cert-ge-user-portal-internal"
-  location = var.region
-  scope    = "CLIENT_AUTH"
-
-  managed {
-    domains            = [var.internal_domain_name]
-    issuance_config    = google_certificate_manager_certificate_issuance_config.user_portal_cert_issuance.id
-  }
-}
 
 resource "google_compute_region_network_endpoint_group" "user_portal_neg" {
   name                  = "neg-ge-user-portal-web"
@@ -463,7 +385,7 @@ resource "google_compute_region_network_endpoint_group" "user_portal_neg" {
 resource "google_compute_region_backend_service" "user_portal_backend" {
   name                  = "bs-ge-user-portal-internal"
   region                = var.region
-  protocol              = "HTTPS"
+  protocol              = "HTTP"
   load_balancing_scheme = "INTERNAL_MANAGED"
 
   backend {
@@ -478,13 +400,6 @@ resource "google_compute_region_url_map" "user_portal_url_map" {
   default_service = google_compute_region_backend_service.user_portal_backend.id
 }
 
-resource "google_compute_region_target_https_proxy" "user_portal_https_proxy" {
-  name                             = "proxy-ge-user-portal-internal-https"
-  region                           = var.region
-  url_map                          = google_compute_region_url_map.user_portal_url_map.id
-  certificate_manager_certificates = [google_certificate_manager_certificate.user_portal_ssl_cert.id]
-}
-
 resource "google_compute_address" "user_portal_internal_vip" {
   name         = "vip-ge-user-portal-internal"
   region       = var.region
@@ -493,36 +408,45 @@ resource "google_compute_address" "user_portal_internal_vip" {
   purpose      = "GCE_ENDPOINT"
 }
 
-resource "google_compute_forwarding_rule" "user_portal_https_fw_rule" {
-  name                  = "fw-ge-user-portal-internal-https"
+resource "google_compute_region_target_http_proxy" "user_portal_http_proxy" {
+  count   = var.ssl_certificate_id == "" ? 1 : 0
+  name    = "proxy-ge-user-portal-internal-http"
+  region  = var.region
+  url_map = google_compute_region_url_map.user_portal_url_map.id
+}
+
+resource "google_compute_forwarding_rule" "user_portal_http_fw_rule" {
+  count                 = var.ssl_certificate_id == "" ? 1 : 0
+  name                  = "fw-ge-user-portal-internal-http"
   region                = var.region
   ip_protocol           = "TCP"
   load_balancing_scheme = "INTERNAL_MANAGED"
-  port_range            = "443"
-  target                = google_compute_region_target_https_proxy.user_portal_https_proxy.id
+  port_range            = "80"
+  target                = google_compute_region_target_http_proxy.user_portal_http_proxy[0].id
   network               = google_compute_network.user_portal_vpc.id
   subnetwork            = google_compute_subnetwork.user_portal_subnet.id
   ip_address            = google_compute_address.user_portal_internal_vip.id
   depends_on            = [google_compute_subnetwork.regional_proxy_subnet]
 }
 
-resource "google_dns_managed_zone" "private_zone" {
-  name        = "zone-ge-user-portal-private"
-  dns_name    = "${local.dns_zone_domain}."
-  description = "Automated Private Cloud DNS Zone for Gemini AI Hub User Portal"
-  visibility  = "private"
-
-  private_visibility_config {
-    networks {
-      network_url = google_compute_network.user_portal_vpc.id
-    }
-  }
+resource "google_compute_region_target_https_proxy" "user_portal_https_proxy" {
+  count            = var.ssl_certificate_id != "" ? 1 : 0
+  name             = "proxy-ge-user-portal-internal-https"
+  region           = var.region
+  url_map          = google_compute_region_url_map.user_portal_url_map.id
+  ssl_certificates = [var.ssl_certificate_id]
 }
 
-resource "google_dns_record_set" "user_portal_dns_a" {
-  name         = "${var.internal_domain_name}."
-  managed_zone = google_dns_managed_zone.private_zone.name
-  type         = "A"
-  ttl          = 300
-  rrdatas      = [google_compute_address.user_portal_internal_vip.address]
+resource "google_compute_forwarding_rule" "user_portal_https_fw_rule" {
+  count                 = var.ssl_certificate_id != "" ? 1 : 0
+  name                  = "fw-ge-user-portal-internal-https"
+  region                = var.region
+  ip_protocol           = "TCP"
+  load_balancing_scheme = "INTERNAL_MANAGED"
+  port_range            = "443"
+  target                = google_compute_region_target_https_proxy.user_portal_https_proxy[0].id
+  network               = google_compute_network.user_portal_vpc.id
+  subnetwork            = google_compute_subnetwork.user_portal_subnet.id
+  ip_address            = google_compute_address.user_portal_internal_vip.id
+  depends_on            = [google_compute_subnetwork.regional_proxy_subnet]
 }

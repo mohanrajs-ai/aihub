@@ -113,10 +113,10 @@ def test_sync_job_and_gcp_deployment_manifests() -> None:
     assert "INTERNAL_MANAGED" in tf_main
     assert "sa-user-portal-web" in tf_main
     assert "sa-user-portal-sync" in tf_main
-    assert "google_privateca_ca_pool" in tf_main
-    assert "google_certificate_manager_certificate" in tf_main
-    assert "google_dns_managed_zone" in tf_main
-    assert "google_dns_record_set" in tf_main
+    assert "google_privateca_ca_pool" not in tf_main
+    assert "google_certificate_manager_certificate" not in tf_main
+    assert "google_dns_managed_zone" not in tf_main
+    assert "google_dns_record_set" not in tf_main
 
 
 def test_user_backend_codebase_excludes_admin_and_duplicate_files() -> None:

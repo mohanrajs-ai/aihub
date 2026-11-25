@@ -1,23 +1,22 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# Fully Automated GCP Deployment Script for Gemini AI Hub — User Portal
+# Automated GCP Deployment Script for Gemini AI Hub — User Portal
 # Prerequisite: Clone the repository manually first, configure
 # user-portal/deploy/config.env, and run this script from the cloned repo.
 # Automates:
 #   1. Syncing User Portal source to GCS & building container image via Cloud Build
-#   2. Full Terraform provisioning (user-portal/deploy/terraform/):
+#   2. Terraform provisioning (user-portal/deploy/terraform/):
 #      - GCP APIs, VPC, Subnets, Proxy-Only Subnet & Private Services Access
-#      - Automated CAS Private CA & Regional Certificate Manager TLS Certificate
-#      - Automated Cloud DNS Private Managed Zone & A Record
 #      - Cloud SQL for PostgreSQL 16 (REGIONAL HA, Private IP, PITR)
 #      - GCP Secret Manager secrets & versions (OAuth Client ID/Secret, Session Secret, DB URL)
 #      - Cloud Run v2 Service (ge-user-portal-web) & 15-min Sync Job + Cloud Scheduler
-#      - Regional Internal HTTPS Application Load Balancer
+#      - Regional Internal Application Load Balancer (SSL Certificate & DNS are configured manually)
 # ==============================================================================
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PORTAL_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+TF_DIR="${PORTAL_DIR}/deploy/terraform"
 
 if [[ -f "${SCRIPT_DIR}/config.env" ]]; then
   echo "Loading deployment configuration from ${SCRIPT_DIR}/config.env..."
@@ -32,16 +31,15 @@ GCS_SOURCE_BUCKET="${GCS_SOURCE_BUCKET:-${PROJECT_ID}-user-portal-source}"
 AR_REPO="${AR_REPO:-ge-user-portal-repo}"
 IMAGE_NAME="${IMAGE_NAME:-ge-user-portal}"
 IMAGE_TAG="${IMAGE_TAG:-latest}"
-INTERNAL_DOMAIN_NAME="${INTERNAL_DOMAIN_NAME:-aihub.internal.corp}"
+SSL_CERTIFICATE_ID="${SSL_CERTIFICATE_ID:-}"
 IMAGE_URI="${REGION}-docker.pkg.dev/${PROJECT_ID}/${AR_REPO}/${IMAGE_NAME}:${IMAGE_TAG}"
 
 echo "=================================================================="
-echo " Deploying Gemini AI Hub — User Portal to GCP (100% Automated)"
+echo " Deploying Gemini AI Hub — User Portal to GCP"
 echo " Source Dir      : ${PORTAL_DIR}"
 echo " GCS Source Bkt  : gs://${GCS_SOURCE_BUCKET}"
 echo " Project         : ${PROJECT_ID}"
 echo " Region          : ${REGION}"
-echo " Internal Domain : ${INTERNAL_DOMAIN_NAME}"
 echo " Image           : ${IMAGE_URI}"
 echo "=================================================================="
 
@@ -112,18 +110,42 @@ gcloud builds submit "gs://${GCS_SOURCE_BUCKET}/archives/user-portal-${IMAGE_TAG
   --project="${PROJECT_ID}" \
   --quiet
 
-# 3. Provision Complete Infrastructure via Terraform (Zero Manual Steps for SSL, DNS, VPC, DB, Secrets, Run)
-echo "[Step 3/3] Provisioning complete GCP stack via Terraform (user-portal/deploy/terraform/)..."
-terraform -chdir="${PORTAL_DIR}/deploy/terraform" init
-terraform -chdir="${PORTAL_DIR}/deploy/terraform" apply -auto-approve \
+# 3. Provision Infrastructure via Terraform (SSL Certificate & DNS are configured manually)
+echo "[Step 3/3] Provisioning GCP stack via Terraform (user-portal/deploy/terraform/)..."
+terraform -chdir="${TF_DIR}" init
+
+import_if_missing() {
+  local addr="$1"
+  local id="$2"
+  if ! terraform -chdir="${TF_DIR}" state show "${addr}" >/dev/null 2>&1; then
+    terraform -chdir="${TF_DIR}" import \
+      -var="project_id=${PROJECT_ID}" \
+      -var="region=${REGION}" \
+      -var="container_image=${IMAGE_URI}" \
+      "${addr}" "${id}" >/dev/null 2>&1 || true
+  fi
+}
+
+import_if_missing "google_storage_bucket.user_portal_source_bucket" "${GCS_SOURCE_BUCKET}"
+import_if_missing "google_artifact_registry_repository.user_portal_repo" "projects/${PROJECT_ID}/locations/${REGION}/repositories/${AR_REPO}"
+import_if_missing "google_service_account.web_sa" "projects/${PROJECT_ID}/serviceAccounts/sa-user-portal-web@${PROJECT_ID}.iam.gserviceaccount.com"
+import_if_missing "google_service_account.sync_sa" "projects/${PROJECT_ID}/serviceAccounts/sa-user-portal-sync@${PROJECT_ID}.iam.gserviceaccount.com"
+for SEC_ID in ge-user-db-url ge-oauth-client-id ge-oauth-client-secret ge-user-session-secret; do
+  import_if_missing "google_secret_manager_secret.secrets[\"${SEC_ID}\"]" "projects/${PROJECT_ID}/secrets/${SEC_ID}"
+done
+import_if_missing "google_cloud_run_v2_service.user_portal_web" "projects/${PROJECT_ID}/locations/${REGION}/services/ge-user-portal-web"
+import_if_missing "google_cloud_run_v2_job.user_portal_sync_job" "projects/${PROJECT_ID}/locations/${REGION}/jobs/ge-user-portal-sync-job"
+import_if_missing "google_cloud_scheduler_job.user_portal_sync_schedule" "projects/${PROJECT_ID}/locations/${REGION}/jobs/ge-user-portal-sync-every-15m"
+
+terraform -chdir="${TF_DIR}" apply -auto-approve \
   -var="project_id=${PROJECT_ID}" \
   -var="region=${REGION}" \
   -var="container_image=${IMAGE_URI}" \
   -var="google_client_id=${GOOGLE_CLIENT_ID:-}" \
   -var="google_client_secret=${GOOGLE_CLIENT_SECRET:-}" \
-  -var="internal_domain_name=${INTERNAL_DOMAIN_NAME}"
+  -var="ssl_certificate_id=${SSL_CERTIFICATE_ID}"
 
 echo "=================================================================="
-echo " Deployment Complete!"
+echo " Terraform Deployment Complete! Configure SSL & DNS Manually Next."
 echo "=================================================================="
-terraform -chdir="${PORTAL_DIR}/deploy/terraform" output
+terraform -chdir="${TF_DIR}" output

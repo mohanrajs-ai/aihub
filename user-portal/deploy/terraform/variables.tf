@@ -28,9 +28,15 @@ variable "google_client_secret" {
 }
 
 variable "internal_domain_name" {
-  description = "Internal FQDN provisioned automatically in Cloud DNS Private Zone and TLS Certificate"
+  description = "Optional internal FQDN (DNS record and SSL certificate are configured manually)"
   type        = string
   default     = "aihub.internal.corp"
+}
+
+variable "ssl_certificate_id" {
+  description = "Optional manually created Regional SSL Certificate ID/self-link for the Internal HTTPS Load Balancer"
+  type        = string
+  default     = ""
 }
 
 variable "subnet_cidr" {
