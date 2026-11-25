@@ -90,7 +90,27 @@ if [[ -n "${VPC_NETWORK_ID:-}" && -n "${VPC_EGRESS_SUBNET_ID:-}" && -n "${ILB_SU
     -var="ilb_subnet_id=${ILB_SUBNET_ID}" \
     -var="ssl_certificate_id=${SSL_CERTIFICATE_ID}"
 else
-  echo "[Step 4/5] Deploying Cloud Run service 'ge-user-portal-web' and sync job 'ge-user-portal-sync-job'..."
+  echo "[Step 4/5] Ensuring Secret Manager secrets and deploying Cloud Run service 'ge-user-portal-web' & sync job 'ge-user-portal-sync-job'..."
+  for SECRET_NAME in ge-oauth-client-id ge-oauth-client-secret ge-user-session-secret; do
+    gcloud secrets describe "${SECRET_NAME}" --project="${PROJECT_ID}" --quiet >/dev/null 2>&1 || \
+      gcloud secrets create "${SECRET_NAME}" --replication-policy="automatic" --project="${PROJECT_ID}" --quiet
+  done
+
+  if [[ -n "${GOOGLE_CLIENT_ID:-}" ]]; then
+    printf '%s' "${GOOGLE_CLIENT_ID}" | gcloud secrets versions add ge-oauth-client-id --data-file=- --project="${PROJECT_ID}" --quiet
+  fi
+  if [[ -n "${GOOGLE_CLIENT_SECRET:-}" ]]; then
+    printf '%s' "${GOOGLE_CLIENT_SECRET}" | gcloud secrets versions add ge-oauth-client-secret --data-file=- --project="${PROJECT_ID}" --quiet
+  fi
+  if ! gcloud secrets versions list ge-user-session-secret --project="${PROJECT_ID}" --limit=1 --format="value(name)" --quiet 2>/dev/null | grep -q .; then
+    openssl rand -hex 32 | tr -d '\n' | gcloud secrets versions add ge-user-session-secret --data-file=- --project="${PROJECT_ID}" --quiet
+  fi
+
+  gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
+    --member="serviceAccount:sa-user-portal-web@${PROJECT_ID}.iam.gserviceaccount.com" \
+    --role="roles/secretmanager.secretAccessor" \
+    --condition=None --quiet >/dev/null
+
   gcloud run deploy ge-user-portal-web \
     --image="${IMAGE_URI}" \
     --region="${REGION}" \
@@ -104,6 +124,7 @@ else
     --concurrency=80 \
     --no-invoker-iam-check \
     --set-env-vars="GCP_PROJECT_ID=${PROJECT_ID},GCP_LOCATION=global,SYNC_ENABLED=false,SYNC_ON_STARTUP=false" \
+    --set-secrets="GOOGLE_CLIENT_ID=ge-oauth-client-id:latest,GOOGLE_CLIENT_SECRET=ge-oauth-client-secret:latest,SESSION_SECRET=ge-user-session-secret:latest" \
     --quiet
 
   gcloud run jobs deploy ge-user-portal-sync-job \

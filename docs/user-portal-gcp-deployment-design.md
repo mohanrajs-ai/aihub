@@ -89,3 +89,16 @@ Defined in [`backend-user/app/db_models.py`](../backend-user/app/db_models.py):
 5. `app_group_bindings` (`AppGroupBindingRecord`): Normalized engine-to-group bindings.
 6. `sync_runs` (`SyncRunRecord`): Execution audit log of the 15-minute `ge-user-portal-sync-job`.
 7. `access_requests` (`AccessRequestRecord`): User-submitted requests for **GE Application Access** (`APP_ACCESS`) and **AGY Licenses** (`AGY_LICENSE`).
+
+---
+
+## 5. OAuth 2.0 Web Client & GCP Secret Manager Integration
+
+All sensitive authentication and database credentials are stored in **GCP Secret Manager** and injected into `ge-user-portal-web` at runtime via Secret Manager volume/environment bindings (`--set-secrets` / Terraform `value_source.secret_key_ref`). Plain-text credential environment variables are never used.
+
+| Secret Manager Secret ID | Mounted Environment Variable | Consumed By | Purpose |
+| :--- | :--- | :--- | :--- |
+| `ge-oauth-client-id` | `GOOGLE_CLIENT_ID` | `ge-user-portal-web` | Google Cloud OAuth 2.0 Web Application Client ID (`*.apps.googleusercontent.com`) configured with `/api/v1/auth/google/callback` redirect URI. |
+| `ge-oauth-client-secret` | `GOOGLE_CLIENT_SECRET` | `ge-user-portal-web` | Google Cloud OAuth 2.0 Web Application Client Secret (`GOCSPX-*`) used during server-side authorization code + PKCE exchange (`/api/v1/auth/google/callback`). |
+| `ge-user-session-secret` | `SESSION_SECRET` | `ge-user-portal-web` | 256-bit cryptographic secret used to sign and verify HMAC-SHA256 OAuth state tokens and user session tokens. |
+| `ge-user-db-url` | `DATABASE_URL` | `ge-user-portal-web`, `ge-user-portal-sync-job` | SQLAlchemy `postgresql+psycopg://` connection string targeting the `geapphub_user` database over Cloud SQL Private IP. |
