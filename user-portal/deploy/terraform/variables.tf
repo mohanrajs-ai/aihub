@@ -9,6 +9,30 @@ variable "region" {
   default     = "us-central1"
 }
 
+variable "container_image" {
+  description = "Artifact Registry container image built from user-portal/Dockerfile"
+  type        = string
+}
+
+variable "google_client_id" {
+  description = "Google OAuth 2.0 Web Application Client ID stored automatically in Secret Manager"
+  type        = string
+  default     = ""
+}
+
+variable "google_client_secret" {
+  description = "Google OAuth 2.0 Web Application Client Secret stored automatically in Secret Manager"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "internal_domain_name" {
+  description = "Internal FQDN provisioned automatically in Cloud DNS Private Zone and TLS Certificate"
+  type        = string
+  default     = "aihub.internal.corp"
+}
+
 variable "github_repo_url" {
   description = "GitHub repository HTTPS or SSH URL hosting the User Portal source code"
   type        = string
@@ -33,37 +57,14 @@ variable "github_branch" {
   default     = "main"
 }
 
-variable "vpc_network_id" {
-  description = "Self-link or ID of the shared/existing VPC network"
+variable "subnet_cidr" {
+  description = "Primary CIDR range for the User Portal Direct VPC Egress & Internal ALB VIP subnet"
   type        = string
+  default     = "10.128.10.0/24"
 }
 
-variable "vpc_egress_subnet_id" {
-  description = "Subnet ID used by Cloud Run Direct VPC Egress"
+variable "proxy_only_subnet_cidr" {
+  description = "CIDR range for the Regional Managed Proxy-Only subnet required by Internal ALB"
   type        = string
-}
-
-variable "ilb_subnet_id" {
-  description = "Subnet ID for the Internal Application Load Balancer forwarding rule VIP"
-  type        = string
-}
-
-variable "container_image" {
-  description = "Artifact Registry container image built from user-portal/Dockerfile"
-  type        = string
-}
-
-variable "internal_domain_name" {
-  description = "Internal FQDN in Cloud DNS Private Zone for the User Portal"
-  type        = string
-}
-
-variable "private_dns_zone_name" {
-  description = "Existing Cloud DNS Private Zone name where the A record will be registered"
-  type        = string
-}
-
-variable "ssl_certificate_id" {
-  description = "Regional SSL Certificate ID (CAS / Private PKI) for the Internal HTTPS Load Balancer"
-  type        = string
+  default     = "10.128.11.0/24"
 }

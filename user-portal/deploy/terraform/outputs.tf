@@ -8,8 +8,18 @@ output "internal_portal_url" {
   value       = "https://${var.internal_domain_name}"
 }
 
+output "private_dns_zone_name" {
+  description = "Automated Private Cloud DNS Managed Zone name"
+  value       = google_dns_managed_zone.private_zone.name
+}
+
+output "ssl_certificate_id" {
+  description = "Automated Regional Certificate Manager Certificate ID attached to the Internal HTTPS Load Balancer"
+  value       = google_certificate_manager_certificate.user_portal_ssl_cert.id
+}
+
 output "cloud_run_service_uri" {
-  description = "Internal Cloud Run v2 service URI"
+  description = "Cloud Run v2 service URI"
   value       = google_cloud_run_v2_service.user_portal_web.uri
 }
 
