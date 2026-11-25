@@ -114,7 +114,6 @@ resource "google_project_iam_member" "sync_sa_roles" {
     "roles/cloudsql.client",
     "roles/secretmanager.secretAccessor",
     "roles/discoveryengine.viewer",
-    "roles/cloudidentity.groupsViewer",
     "roles/run.invoker",
     "roles/logging.logWriter",
   ])
@@ -390,6 +389,7 @@ resource "google_compute_region_backend_service" "user_portal_backend" {
 
   backend {
     group           = google_compute_region_network_endpoint_group.user_portal_neg.id
+    balancing_mode  = "UTILIZATION"
     capacity_scaler = 1.0
   }
 }
