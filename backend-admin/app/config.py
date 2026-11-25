@@ -99,10 +99,12 @@ def get_settings() -> Settings:
                 _parse_csv(os.environ.get("ADMIN_USERS"))
             )
         ),
-        google_client_id=os.environ.get("GOOGLE_CLIENT_ID", "").strip(),
+        google_client_id=os.environ.get("GOOGLE_CLIENT_ID", "").strip(
+            " \t\n\r\"'\u201c\u201d\u2018\u2019"
+        ),
         google_client_secret=os.environ.get(
             "GOOGLE_CLIENT_SECRET", ""
-        ).strip(),
+        ).strip(" \t\n\r\"'\u201c\u201d\u2018\u2019"),
         session_secret=os.environ.get(
             "SESSION_SECRET", "ge-apphub-session-secret-key"
         ),
