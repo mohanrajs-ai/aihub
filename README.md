@@ -1,60 +1,19 @@
-# Gemini Enterprise AI Hub Portal (`aihub`)
+# Gemini AI Hub — Repository Structure
 
-Physically decoupled User Portal (`frontend-user/` + `backend-user/` + `geapphub_user` DB) and Admin Console (`frontend-admin/` + `backend-admin/` + `geapphub_admin` DB) codebases with two independent FastAPI container deployments (`Dockerfile.user` on port `8080`, `Dockerfile.admin` on port `8082`) and two separate PostgreSQL databases (`postgres-user` on port `5432`, `postgres-admin` on port `5433`).
+This repository contains two physically decoupled applications with independent frontend SPAs, FastAPI backends, databases, and Docker deployments:
 
-## Repository Structure
+## 1. User Portal (`user-portal/`)
+- **Frontend (`user-portal/frontend/`)**: React 18 + TypeScript + Vite SPA (Dev port `5173`) providing:
+  - **GE App Hub**: Authorized Gemini Enterprise application catalog (`APP ID`, `APP Name`, `Group`, `Location`, `URL`).
+  - **AGY Hub**: Antigravity on VS Code, Antigravity CLI, and Antigravity App onboarding for `Standard` and `Plus` licensed users.
+  - **Request Access**: Self-service requests for ungranted applications and AGY licenses.
+- **Backend (`user-portal/backend/`)**: FastAPI runtime (Port `8080`, `geapphub_user` PostgreSQL database).
+- **GCP Deployment (`user-portal/deploy/` & `user-portal/docs/`)**:
+  - [USER_PORTAL_GCP_DEPLOYMENT_GUIDE.md](./user-portal/docs/USER_PORTAL_GCP_DEPLOYMENT_GUIDE.md)
+  - [user-portal-gcp-deployment-design.md](./user-portal/docs/user-portal-gcp-deployment-design.md)
+  - [deploy_user_portal_gcp.sh](./user-portal/deploy/deploy_user_portal_gcp.sh)
 
-```text
-aihub/
-├── frontend-user/                # Standalone User Portal SPA (React 18 + TS + Vite, Port 5173)
-├── backend-user/                 # Standalone User Portal FastAPI Backend (Port 8080) & geapphub_user.db
-├── frontend-admin/               # Standalone Admin Console SPA (React 18 + TS + Vite, Port 5174)
-├── backend-admin/                # Standalone Admin Console FastAPI Backend (Port 8082) & geapphub_admin.db
-├── docs/                         # Architecture & Governance One-Pagers
-├── conductor/                    # Project Context, Style Guides & Tracks Registry
-├── Dockerfile.user               # Standalone User Portal Container Build (frontend-user + backend-user, Port 8080)
-├── Dockerfile.admin              # Standalone Admin Console Container Build (frontend-admin + backend-admin, Port 8082)
-└── docker-compose.yml            # Multi-Container Deployment (postgres-user, postgres-admin, user-portal, admin-console)
-```
-
-## Related Sibling Repositories (`/Users/mohanrajs/aops/`)
-
-- **[`../geautodeployment`](../geautodeployment)**: Terraform Stacks, `gedeploy` CLI, and Enterprise Deployment / Publishing Guides (`docs/`).
-- **[`../agents`](../agents)**: Deployable Google ADK Agents for Vertex AI Agent Runtime (`ReasoningEngine`).
-- **[`../skill_governance_pipeline`](../skill_governance_pipeline)**: Standalone 6-Stage AI Skill Governance & Publishing CLI (`skillgp`).
-- **[`../skills_catalog`](../skills_catalog)**: Git-managed Atomic Sub-Skills and Composite Parent Skills (`SKILL.md`).
-
-## Quick Start
-
-### 1. Start the Standalone Backend Services (Each with its Own Database)
-```bash
-# User Portal Backend (Port 8080 -> connects to geapphub_user / backend-user/geapphub_user.db)
-cd backend-user && ../.venv/bin/uvicorn app.main:app --reload --port 8080
-
-# Admin Console Backend (Port 8082 -> connects to geapphub_admin / backend-admin/geapphub_admin.db)
-cd backend-admin && ../.venv/bin/uvicorn app.main:app --reload --port 8082
-```
-
-### 2. Start the Standalone Frontend Development Servers
-```bash
-# User Portal Dev Server (Port 5173 -> proxies /api to :8080)
-cd frontend-user && npm run dev -- --host 0.0.0.0 --port 5173
-
-# Admin Console Dev Server (Port 5174 -> proxies /api to :8082)
-cd frontend-admin && npm run dev -- --host 0.0.0.0 --port 5174
-```
-
-### 3. Deploy Independent Containers & Databases via Docker Compose
-```bash
-docker compose up --build -d
-# User Portal:    http://localhost:8080 (Postgres: localhost:5432 / geapphub_user)
-# Admin Console:  http://localhost:8082 (Postgres: localhost:5433 / geapphub_admin)
-```
-
-### 4. Run Automated Tests
-```bash
-cd backend-user && ../.venv/bin/pytest -q
-cd backend-admin && ../.venv/bin/pytest -q
-cd frontend-user && npm test -- --run && npm run build
-cd frontend-admin && npm test -- --run && npm run build
-```
+## 2. Admin Portal (`admin-portal/`)
+- **Frontend (`admin-portal/frontend/`)**: React 18 + TypeScript + Vite SPA (Dev port `5174`) for Skill Governance, Infrastructure Provisioning Studio, Agents, Connectors, and Sync.
+- **Backend (`admin-portal/backend/`)**: FastAPI runtime (Port `8082`, `geapphub_admin` PostgreSQL database).
+- **Documentation**: [SKILL_GOVERNANCE_ONE_PAGER.md](./admin-portal/docs/SKILL_GOVERNANCE_ONE_PAGER.md)

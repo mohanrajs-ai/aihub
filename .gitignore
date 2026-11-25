@@ -11,12 +11,13 @@ htmlcov/
 
 # Node / Frontend
 node_modules/
-frontend/dist/
-frontend/coverage/
-frontend-user/dist/
-frontend-user/coverage/
-frontend-admin/dist/
-frontend-admin/coverage/
+**/node_modules/
+user-portal/frontend/dist/
+user-portal/frontend/coverage/
+user-portal/frontend/package-lock.json
+admin-portal/frontend/dist/
+admin-portal/frontend/coverage/
+admin-portal/frontend/package-lock.json
 *.tsbuildinfo
 *.log
 

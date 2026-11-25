@@ -37,8 +37,8 @@ services:
 
   user-portal:
     build:
-      context: .
-      dockerfile: Dockerfile.user
+      context: ./user-portal
+      dockerfile: Dockerfile
     container_name: geapphub-user-portal
     restart: unless-stopped
     depends_on:
@@ -46,7 +46,7 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres-user:5432/${POSTGRES_USER_DB:-geapphub_user}
-      GCP_PROJECT_ID: ${GCP_PROJECT_ID:-cymbal-app-514110}
+      GCP_PROJECT_ID: ${GCP_PROJECT_ID:?Set GCP_PROJECT_ID in environment}
       USE_MOCK_DATA: ${USE_MOCK_DATA:-false}
       SYNC_ENABLED: "false"
     ports:
@@ -54,8 +54,8 @@ services:
 
   admin-console:
     build:
-      context: .
-      dockerfile: Dockerfile.admin
+      context: ./admin-portal
+      dockerfile: Dockerfile
     container_name: geapphub-admin-console
     restart: unless-stopped
     depends_on:
@@ -63,7 +63,7 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_ADMIN_USER:-postgres}:${POSTGRES_ADMIN_PASSWORD:-postgres}@postgres-admin:5432/${POSTGRES_ADMIN_DB:-geapphub_admin}
-      GCP_PROJECT_ID: ${GCP_PROJECT_ID:-cymbal-app-514110}
+      GCP_PROJECT_ID: ${GCP_PROJECT_ID:?Set GCP_PROJECT_ID in environment}
       USE_MOCK_DATA: ${USE_MOCK_DATA:-false}
       SYNC_ENABLED: ${SYNC_ENABLED:-true}
     ports:
