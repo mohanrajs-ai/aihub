@@ -1,5 +1,6 @@
 """Configuration management for the Gemini Enterprise AppHub backend."""
 
+import json
 import os
 
 import pydantic
@@ -79,12 +80,44 @@ def _parse_int(value: str | None, default: int) -> int:
         return default
 
 
+def _resolve_oauth_credentials() -> tuple[str, str]:
+    """Resolves OAuth client ID and secret from GOOGLE_OAUTH_CREDENTIALS JSON or env vars."""
+    strip_chars = " \t\n\r\"'\u201c\u201d\u2018\u2019"
+    client_id = os.environ.get("GOOGLE_CLIENT_ID", "").strip(strip_chars)
+    client_secret = os.environ.get("GOOGLE_CLIENT_SECRET", "").strip(
+        strip_chars
+    )
+    raw_json = os.environ.get("GOOGLE_OAUTH_CREDENTIALS", "").strip()
+    if raw_json:
+        try:
+            payload = json.loads(raw_json)
+            if isinstance(payload, dict):
+                nested = (
+                    payload.get("web")
+                    or payload.get("installed")
+                    or payload
+                )
+                if isinstance(nested, dict):
+                    cid = str(nested.get("client_id") or "").strip(strip_chars)
+                    csec = str(nested.get("client_secret") or "").strip(
+                        strip_chars
+                    )
+                    if cid:
+                        client_id = cid
+                    if csec:
+                        client_secret = csec
+        except ValueError:
+            pass
+    return client_id, client_secret
+
+
 def get_settings() -> Settings:
     """Loads and returns current application settings from the environment.
 
     Returns:
         Configured Settings instance.
     """
+    client_id, client_secret = _resolve_oauth_credentials()
     return Settings(
         gcp_project_id=os.environ.get("GCP_PROJECT_ID", "").strip(),
         gcp_location=os.environ.get("GCP_LOCATION", "global"),
@@ -99,12 +132,8 @@ def get_settings() -> Settings:
                 _parse_csv(os.environ.get("ADMIN_USERS"))
             )
         ),
-        google_client_id=os.environ.get("GOOGLE_CLIENT_ID", "").strip(
-            " \t\n\r\"'\u201c\u201d\u2018\u2019"
-        ),
-        google_client_secret=os.environ.get(
-            "GOOGLE_CLIENT_SECRET", ""
-        ).strip(" \t\n\r\"'\u201c\u201d\u2018\u2019"),
+        google_client_id=client_id,
+        google_client_secret=client_secret,
         session_secret=os.environ.get(
             "SESSION_SECRET", "ge-apphub-session-secret-key"
         ),

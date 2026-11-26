@@ -4,39 +4,58 @@ variable "project_id" {
 }
 
 variable "region" {
-  description = "Primary GCP Region for Cloud Run, Internal ALB, and Cloud SQL HA"
+  description = "Primary GCP Region for Google Artifact Registry, Cloud Run, Internal ALB, and Cloud SQL HA"
   type        = string
   default     = "us-central1"
 }
 
+variable "ar_repo_id" {
+  description = "Google Artifact Registry Docker repository ID"
+  type        = string
+  default     = "ge-user-portal-repo"
+}
+
 variable "container_image" {
-  description = "Artifact Registry container image built from user-portal/Dockerfile"
+  description = "Google Artifact Registry container image URI built from user-portal/Dockerfile"
   type        = string
 }
 
-variable "google_client_id" {
-  description = "Google OAuth 2.0 Web Application Client ID stored automatically in Secret Manager"
+variable "oauth_Secret_name" {
+  description = "Deprecated alias; use oauth_secret_name"
   type        = string
   default     = ""
 }
 
-variable "google_client_secret" {
-  description = "Google OAuth 2.0 Web Application Client Secret stored automatically in Secret Manager"
+variable "oauth_secret_name" {
+  description = "Cloud Secret Manager secret ID storing both Google OAuth 2.0 Client ID and Client Secret (JSON)"
+  type        = string
+  default     = "ge-oauth-credentials"
+}
+
+variable "ssl_secret_name" {
+  description = "Cloud Secret Manager secret ID storing both the TLS SSL Certificate and Private Key (combined PEM or JSON)"
+  type        = string
+  default     = "ge-ssl-certificate"
+}
+
+variable "oauth_credentials_json" {
+  description = "Optional JSON payload containing client_id and client_secret to seed into ge-oauth-credentials"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "ssl_bundle_pem" {
+  description = "Optional combined PEM (certificate + private key) or JSON to seed into ge-ssl-certificate"
   type        = string
   sensitive   = true
   default     = ""
 }
 
 variable "internal_domain_name" {
-  description = "Optional internal FQDN (DNS record and SSL certificate are configured manually)"
+  description = "Internal FQDN for the User Portal"
   type        = string
   default     = "aihub.internal.corp"
-}
-
-variable "ssl_certificate_id" {
-  description = "Optional manually created Regional SSL Certificate ID/self-link for the Internal HTTPS Load Balancer"
-  type        = string
-  default     = ""
 }
 
 variable "subnet_cidr" {

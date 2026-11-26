@@ -1,11 +1,16 @@
-output "gcs_source_bucket" {
-  description = "GCS bucket used for syncing User Portal source code and staging Cloud Build archives"
-  value       = "gs://${google_storage_bucket.user_portal_source_bucket.name}"
+output "artifact_registry_repository" {
+  description = "Google Artifact Registry Docker repository URI for User Portal container images"
+  value       = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.user_portal_repo.repository_id}"
 }
 
 output "internal_load_balancer_vip" {
-  description = "Private RFC 1918 IP address of the User Portal Internal Application Load Balancer (map your manual DNS A record to this VIP)"
+  description = "Private RFC 1918 IP address of the User Portal Internal HTTPS Application Load Balancer (map your DNS A record to this VIP)"
   value       = google_compute_address.user_portal_internal_vip.address
+}
+
+output "ssl_certificate_self_link" {
+  description = "Regional Compute SSL Certificate provisioned from Cloud Secret Manager"
+  value       = google_compute_region_ssl_certificate.user_portal_ssl_cert.self_link
 }
 
 output "cloud_run_service_uri" {

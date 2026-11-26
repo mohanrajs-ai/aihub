@@ -68,21 +68,13 @@ resource "google_service_networking_connection" "private_vpc_connection" {
 }
 
 # ============================================================================
-# 2. GCS Source Staging Bucket, Artifact Registry & Service Accounts
+# 2. Google Artifact Registry & Least-Privilege Service Accounts
 # ============================================================================
-
-resource "google_storage_bucket" "user_portal_source_bucket" {
-  name                        = "${var.project_id}-user-portal-source"
-  location                    = var.region
-  uniform_bucket_level_access = true
-  force_destroy               = true
-  depends_on                  = [google_project_service.enabled_apis]
-}
 
 resource "google_artifact_registry_repository" "user_portal_repo" {
   location      = var.region
-  repository_id = "ge-user-portal-repo"
-  description   = "Container repository for Gemini AI Hub User Portal"
+  repository_id = var.ar_repo_id
+  description   = "Google Artifact Registry Docker repository for Gemini AI Hub User Portal"
   format        = "DOCKER"
   depends_on    = [google_project_service.enabled_apis]
 }
@@ -165,15 +157,15 @@ resource "google_sql_user" "appuser" {
 }
 
 # ============================================================================
-# 4. GCP Secret Manager Secrets & Automated Secret Versions
+# 4. GCP Secret Manager (2 User-Managed Secrets: OAuth + SSL, plus DB & Session)
 # ============================================================================
 
 resource "google_secret_manager_secret" "secrets" {
   for_each = toset([
     "ge-user-db-url",
-    "ge-oauth-client-id",
-    "ge-oauth-client-secret",
     "ge-user-session-secret",
+    var.oauth_secret_name,
+    var.ssl_secret_name,
   ])
   secret_id  = each.value
   depends_on = [google_project_service.enabled_apis]
@@ -188,19 +180,41 @@ resource "google_secret_manager_secret_version" "db_url_version" {
   secret_data = "postgresql+psycopg://${google_sql_user.appuser.name}:${local.generated_db_password}@${google_sql_database_instance.user_pg.private_ip_address}:5432/${google_sql_database.geapphub_user_db.name}"
 }
 
-resource "google_secret_manager_secret_version" "oauth_client_id_version" {
-  secret      = google_secret_manager_secret.secrets["ge-oauth-client-id"].id
-  secret_data = var.google_client_id != "" ? var.google_client_id : "configure-google-oauth-client-id"
-}
-
-resource "google_secret_manager_secret_version" "oauth_client_secret_version" {
-  secret      = google_secret_manager_secret.secrets["ge-oauth-client-secret"].id
-  secret_data = var.google_client_secret != "" ? var.google_client_secret : "configure-google-oauth-client-secret"
-}
-
 resource "google_secret_manager_secret_version" "session_secret_version" {
   secret      = google_secret_manager_secret.secrets["ge-user-session-secret"].id
   secret_data = local.generated_session_hmac
+}
+
+resource "google_secret_manager_secret_version" "oauth_credentials_seed" {
+  count       = var.oauth_credentials_json != "" ? 1 : 0
+  secret      = google_secret_manager_secret.secrets[var.oauth_secret_name].id
+  secret_data = var.oauth_credentials_json
+}
+
+resource "google_secret_manager_secret_version" "ssl_bundle_seed" {
+  count       = var.ssl_bundle_pem != "" ? 1 : 0
+  secret      = google_secret_manager_secret.secrets[var.ssl_secret_name].id
+  secret_data = var.ssl_bundle_pem
+}
+
+data "google_secret_manager_secret_version" "ssl_certificate" {
+  project = var.project_id
+  secret  = google_secret_manager_secret.secrets[var.ssl_secret_name].secret_id
+  depends_on = [
+    google_secret_manager_secret_version.ssl_bundle_seed,
+  ]
+}
+
+locals {
+  ssl_secret_raw = data.google_secret_manager_secret_version.ssl_certificate.secret_data
+  ssl_certificate_pem = try(
+    jsondecode(local.ssl_secret_raw).certificate,
+    join("\n", regexall("-----BEGIN CERTIFICATE-----[\\s\\S]*?-----END CERTIFICATE-----", local.ssl_secret_raw))
+  )
+  ssl_private_key_pem = try(
+    jsondecode(local.ssl_secret_raw).private_key,
+    regex("-----BEGIN [A-Z ]*PRIVATE KEY-----[\\s\\S]*?-----END [A-Z ]*PRIVATE KEY-----", local.ssl_secret_raw)
+  )
 }
 
 # ============================================================================
@@ -214,9 +228,8 @@ resource "google_cloud_run_v2_service" "user_portal_web" {
   depends_on = [
     google_project_iam_member.web_sa_roles,
     google_secret_manager_secret_version.db_url_version,
-    google_secret_manager_secret_version.oauth_client_id_version,
-    google_secret_manager_secret_version.oauth_client_secret_version,
     google_secret_manager_secret_version.session_secret_version,
+    google_secret_manager_secret_version.oauth_credentials_seed,
   ]
 
   template {
@@ -273,19 +286,10 @@ resource "google_cloud_run_v2_service" "user_portal_web" {
         }
       }
       env {
-        name = "GOOGLE_CLIENT_ID"
+        name = "GOOGLE_OAUTH_CREDENTIALS"
         value_source {
           secret_key_ref {
-            secret  = google_secret_manager_secret.secrets["ge-oauth-client-id"].secret_id
-            version = "latest"
-          }
-        }
-      }
-      env {
-        name = "GOOGLE_CLIENT_SECRET"
-        value_source {
-          secret_key_ref {
-            secret  = google_secret_manager_secret.secrets["ge-oauth-client-secret"].secret_id
+            secret  = google_secret_manager_secret.secrets[var.oauth_secret_name].secret_id
             version = "latest"
           }
         }
@@ -368,8 +372,20 @@ resource "google_cloud_scheduler_job" "user_portal_sync_schedule" {
 }
 
 # ============================================================================
-# 7. Regional Internal Application Load Balancer (SSL & DNS Configured Manually)
+# 7. Regional Internal HTTPS Application Load Balancer (SSL Cert from Secret Manager)
 # ============================================================================
+
+resource "google_compute_region_ssl_certificate" "user_portal_ssl_cert" {
+  name_prefix = "cert-ge-user-portal-"
+  region      = var.region
+  description = "Regional SSL certificate for Gemini AI Hub User Portal sourced from Cloud Secret Manager"
+  certificate = local.ssl_certificate_pem
+  private_key = local.ssl_private_key_pem
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
 
 resource "google_compute_region_network_endpoint_group" "user_portal_neg" {
   name                  = "neg-ge-user-portal-web"
@@ -408,43 +424,20 @@ resource "google_compute_address" "user_portal_internal_vip" {
   purpose      = "GCE_ENDPOINT"
 }
 
-resource "google_compute_region_target_http_proxy" "user_portal_http_proxy" {
-  count   = var.ssl_certificate_id == "" ? 1 : 0
-  name    = "proxy-ge-user-portal-internal-http"
-  region  = var.region
-  url_map = google_compute_region_url_map.user_portal_url_map.id
-}
-
-resource "google_compute_forwarding_rule" "user_portal_http_fw_rule" {
-  count                 = var.ssl_certificate_id == "" ? 1 : 0
-  name                  = "fw-ge-user-portal-internal-http"
-  region                = var.region
-  ip_protocol           = "TCP"
-  load_balancing_scheme = "INTERNAL_MANAGED"
-  port_range            = "80"
-  target                = google_compute_region_target_http_proxy.user_portal_http_proxy[0].id
-  network               = google_compute_network.user_portal_vpc.id
-  subnetwork            = google_compute_subnetwork.user_portal_subnet.id
-  ip_address            = google_compute_address.user_portal_internal_vip.id
-  depends_on            = [google_compute_subnetwork.regional_proxy_subnet]
-}
-
 resource "google_compute_region_target_https_proxy" "user_portal_https_proxy" {
-  count            = var.ssl_certificate_id != "" ? 1 : 0
   name             = "proxy-ge-user-portal-internal-https"
   region           = var.region
   url_map          = google_compute_region_url_map.user_portal_url_map.id
-  ssl_certificates = [var.ssl_certificate_id]
+  ssl_certificates = [google_compute_region_ssl_certificate.user_portal_ssl_cert.id]
 }
 
 resource "google_compute_forwarding_rule" "user_portal_https_fw_rule" {
-  count                 = var.ssl_certificate_id != "" ? 1 : 0
   name                  = "fw-ge-user-portal-internal-https"
   region                = var.region
   ip_protocol           = "TCP"
   load_balancing_scheme = "INTERNAL_MANAGED"
   port_range            = "443"
-  target                = google_compute_region_target_https_proxy.user_portal_https_proxy[0].id
+  target                = google_compute_region_target_https_proxy.user_portal_https_proxy.id
   network               = google_compute_network.user_portal_vpc.id
   subnetwork            = google_compute_subnetwork.user_portal_subnet.id
   ip_address            = google_compute_address.user_portal_internal_vip.id

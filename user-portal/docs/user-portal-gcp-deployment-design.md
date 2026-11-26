@@ -2,20 +2,20 @@
 
 ## 1. Executive Summary & Design Decisions
 
-This document defines the production Google Cloud Platform (GCP) deployment architecture for the standalone **Gemini AI Hub — User Portal** (`user-portal/frontend/` + `user-portal/backend/` + `geapphub_user` database). All project identifiers (`${GCP_PROJECT_ID}`), regions (`${GCP_REGION}`), networking resources, and credentials are parameterized and supplied by the user at deployment time.
+This document defines the production Google Cloud Platform (GCP) deployment architecture for the standalone **Gemini AI Hub — User Portal** (`user-portal/frontend/` + `user-portal/backend/` + `geapphub_user` database). All project identifiers (`${GCP_PROJECT_ID}`), regions (`${GCP_REGION}`), networking resources, and credentials are parameterized and managed via **Google Artifact Registry**, **Cloud Build**, **Google Cloud Secret Manager**, and **Terraform**.
 
 | Design Dimension | Selected Architecture Decision |
 | :--- | :--- |
 | **1. Compute & Packaging** | **Single Cloud Run v2 Service (`ge-user-portal-web`)** built from [`user-portal/Dockerfile`](../Dockerfile), serving the compiled React 18 SPA (`user-portal/frontend/dist`) and FastAPI backend (`user-portal/backend/app/main.py`) on a single origin (`:8080`). |
-| **2. Ingress & Network Perimeter** | **Terraform-Automated VPC (`vpc-ge-user-portal`), Subnets, Proxy-Only Subnet, and Regional Internal Application Load Balancer (`INTERNAL_MANAGED`)** with a private RFC 1918 VIP. |
-| **3. DNS & TLS Termination** | **Manual Enterprise SSL Certificate (`gcloud compute ssl-certificates create`) & Manual Private DNS Record (`A` record mapped to the Internal ALB VIP)**. |
-| **4. User Authentication** | **In-App Google Cloud Identity / Microsoft 365 SAML SSO** (`/api/v1/auth/google/login` with `login_hint` email redirect to Google OAuth 2.0 + PKCE and HMAC-SHA256 session tokens). |
+| **2. Ingress & Network Perimeter** | **Terraform-Automated VPC (`vpc-ge-user-portal`), Subnets, Proxy-Only Subnet, and Regional Internal HTTPS Application Load Balancer (`INTERNAL_MANAGED`)** with a private RFC 1918 VIP. |
+| **3. TLS Termination via Secret Manager** | **Regional Compute SSL Certificate (`google_compute_region_ssl_certificate.user_portal_ssl_cert`)** provisioned automatically by Terraform from the combined PEM certificate + private key stored in a single **GCP Secret Manager** secret (`ge-ssl-certificate`). |
+| **4. User Authentication** | **In-App Google Cloud Identity / Microsoft 365 SAML SSO** (`/api/v1/auth/google/login` with `login_hint` email redirect to Google OAuth 2.0 + PKCE and HMAC-SHA256 session tokens), with Client ID & Secret sourced from a single **GCP Secret Manager** JSON secret (`ge-oauth-credentials`). |
 | **5. Database (`geapphub_user`)** | **Cloud SQL for PostgreSQL 16 (`geapphub-user-pg`)** configured with **Regional High Availability (`REGIONAL` 2-zone HA)**, `db-custom-2-8192` (2 vCPU, 8 GiB RAM), Point-in-Time Recovery (PITR), and **Private IP only** accessed via Cloud Run **Direct VPC Egress**. |
 | **6. Catalog & Group Sync** | **Cloud Run v2 Job (`ge-user-portal-sync-job`)** triggered every **15 minutes** by **Cloud Scheduler** (`*/15 * * * *`), executing `python -m app.sync_job` to sync Discovery Engine applications and Cloud Identity group memberships into `geapphub_user`. |
 | **7. Access & AGY License Requests** | Persisted in the **`access_requests` PostgreSQL table** (`AccessRequestRecord`) inside `geapphub_user` for Admin Console fulfillment and auditability. |
 | **8. Cloud Run Sizing & Scaling** | **Warm Production Profile**: `min_instance_count = 1` (zero cold start), `max_instance_count = 10`, `2 vCPU`, `1 GiB RAM`, `max_instance_request_concurrency = 80`. |
-| **9. IAM & Secret Management** | Two dedicated least-privilege service accounts (**`sa-user-portal-web`** and **`sa-user-portal-sync`**) with OAuth & DB secrets injected natively from **GCP Secret Manager**. |
-| **10. CI/CD & IaC Delivery** | **GCS Source Staging Bucket (`gs://${GCP_PROJECT_ID}-user-portal-source`)** -> **Cloud Build (`user-portal/cloudbuild.yaml`)** -> **Artifact Registry (`ge-user-portal-repo`)** -> **Terraform Stack (`user-portal/deploy/terraform/`)**. |
+| **9. IAM & Secret Management** | Two dedicated least-privilege service accounts (**`sa-user-portal-web`** and **`sa-user-portal-sync`**) with OAuth (`ge-oauth-credentials`), SSL (`ge-ssl-certificate`), Session, and DB secrets managed in **GCP Secret Manager**. |
+| **10. CI/CD & IaC Pipeline** | **Cloud Build Pipeline (`user-portal/cloudbuild.yaml`)** validates secrets in **Cloud Secret Manager**, builds & pushes container images directly to **Google Artifact Registry (`ge-user-portal-repo`)**, and applies the **Terraform Stack (`user-portal/deploy/terraform/`)**. |
 
 ---
 
@@ -28,9 +28,14 @@ flowchart TB
   end
 
   subgraph GCP["Target GCP Project: ${GCP_PROJECT_ID} (Region: ${GCP_REGION})"]
+    subgraph CICD["CI/CD & Artifact Pipeline"]
+      CloudBuild["Cloud Build Pipeline<br/>(user-portal/cloudbuild.yaml)"]
+      ArtifactReg["Google Artifact Registry<br/>(ge-user-portal-repo)"]
+    end
+
     subgraph VPC["Enterprise VPC (Private RFC 1918)"]
-      DNS["Cloud DNS Private Zone"]
-      ILB["Internal Application Load Balancer<br/>(INTERNAL_MANAGED HTTPS + Private CAS Cert)"]
+      DNS["Private DNS"]
+      ILB["Internal HTTPS Application Load Balancer<br/>(INTERNAL_MANAGED + Secret Manager SSL Cert)"]
       NEG["Serverless NEG"]
       EgressSubnet["Direct VPC Egress Subnet"]
       PSA["Private Services Access (PSA)<br/>Cloud SQL Private IP"]
@@ -43,9 +48,9 @@ flowchart TB
 
     Scheduler["Cloud Scheduler<br/>(Every 15 mins: */15 * * * *)"]
 
-    subgraph DataAndSecrets["Persistence & Secrets"]
+    subgraph DataAndSecrets["Persistence & Cloud Secret Manager"]
       CloudSQL[("Cloud SQL PostgreSQL 16<br/>Instance: geapphub-user-pg<br/>DB: geapphub_user<br/>REGIONAL HA (2 Zones) + PITR")]
-      SecretMgr["GCP Secret Manager<br/>- ge-user-db-url<br/>- ge-oauth-client-id<br/>- ge-oauth-client-secret<br/>- ge-user-session-secret"]
+      SecretMgr["GCP Secret Manager<br/>- ge-oauth-credentials (Client ID + Secret JSON)<br/>- ge-ssl-certificate (Cert + Key PEM)<br/>- ge-user-db-url<br/>- ge-user-session-secret"]
     end
 
     subgraph GoogleAPIs["Google Cloud & Workspace APIs"]
@@ -55,6 +60,11 @@ flowchart TB
     end
   end
 
+  CloudBuild -->|"Push Image"| ArtifactReg
+  ArtifactReg -->|"Deploy Image"| WebSvc
+  ArtifactReg -->|"Deploy Image"| SyncJob
+  SecretMgr -.->|"Verify Secrets"| CloudBuild
+  SecretMgr -.->|"Provision Regional SSL Cert"| ILB
   UserBrowser -->|"1. Resolve Private VIP"| DNS
   UserBrowser -->|"2. HTTPS (443) over VPN"| ILB
   ILB --> NEG --> WebSvc
@@ -75,7 +85,7 @@ flowchart TB
 | Service Account | Attached Component | Granted IAM Roles | Purpose |
 | :--- | :--- | :--- | :--- |
 | `sa-user-portal-web@${GCP_PROJECT_ID}.iam.gserviceaccount.com` | Cloud Run Service (`ge-user-portal-web`) | `roles/cloudsql.client`, `roles/secretmanager.secretAccessor`, `roles/logging.logWriter`, `roles/monitoring.metricWriter` | Serves User Portal UI & APIs, reads/writes `geapphub_user` DB (`users`, `access_requests`), reads OAuth secrets. Has **no** write access to Discovery Engine or Terraform state. |
-| `sa-user-portal-sync@${GCP_PROJECT_ID}.iam.gserviceaccount.com` | Cloud Run Job (`ge-user-portal-sync-job`) + Cloud Scheduler | `roles/cloudsql.client`, `roles/secretmanager.secretAccessor`, `roles/discoveryengine.viewer`, `roles/cloudidentity.groupsViewer`, `roles/run.invoker` | Periodically queries Discovery Engine engines and Cloud Identity group memberships and updates `geapphub_user`. |
+| `sa-user-portal-sync@${GCP_PROJECT_ID}.iam.gserviceaccount.com` | Cloud Run Job (`ge-user-portal-sync-job`) + Cloud Scheduler | `roles/cloudsql.client`, `roles/secretmanager.secretAccessor`, `roles/discoveryengine.viewer`, `roles/run.invoker`, `roles/logging.logWriter` | Periodically queries Discovery Engine engines and Cloud Identity group memberships and updates `geapphub_user`. |
 
 ---
 
@@ -92,13 +102,13 @@ Defined in [`user-portal/backend/app/db_models.py`](../backend/app/db_models.py)
 
 ---
 
-## 5. OAuth 2.0 Web Client & GCP Secret Manager Integration
+## 5. Cloud Secret Manager Integration (2 User Secrets + 2 System Secrets)
 
-All sensitive authentication and database credentials are stored in **GCP Secret Manager** and injected into `ge-user-portal-web` at runtime via Secret Manager bindings (`--set-secrets` / Terraform `value_source.secret_key_ref`). Plain-text credential environment variables are never used.
+All sensitive authentication, TLS termination, and database credentials are stored in **GCP Secret Manager** and consumed natively by Cloud Build, Terraform, and Cloud Run:
 
-| Secret Manager Secret ID | Mounted Environment Variable | Consumed By | Purpose |
-| :--- | :--- | :--- | :--- |
-| `ge-oauth-client-id` | `GOOGLE_CLIENT_ID` | `ge-user-portal-web` | Google Cloud OAuth 2.0 Web Application Client ID (`*.apps.googleusercontent.com`) configured with `/api/v1/auth/google/callback` redirect URI. |
-| `ge-oauth-client-secret` | `GOOGLE_CLIENT_SECRET` | `ge-user-portal-web` | Google Cloud OAuth 2.0 Web Application Client Secret (`GOCSPX-*`) used during server-side authorization code + PKCE exchange (`/api/v1/auth/google/callback`). |
-| `ge-user-session-secret` | `SESSION_SECRET` | `ge-user-portal-web` | 256-bit cryptographic secret used to sign and verify HMAC-SHA256 OAuth state tokens and user session tokens. |
-| `ge-user-db-url` | `DATABASE_URL` | `ge-user-portal-web`, `ge-user-portal-sync-job` | SQLAlchemy `postgresql+psycopg://` connection string targeting the `geapphub_user` database over Cloud SQL Private IP. |
+| Secret Manager Secret ID | Consumed By | Purpose |
+| :--- | :--- | :--- |
+| `ge-oauth-credentials` | `ge-user-portal-web` (`GOOGLE_OAUTH_CREDENTIALS`), `cloudbuild.yaml` | Single JSON secret storing both Google OAuth 2.0 Web Application `client_id` and `client_secret` (supports standard `client_secret.json` or `{"client_id":"...","client_secret":"..."}`). |
+| `ge-ssl-certificate` | Terraform (`google_compute_region_ssl_certificate`), `cloudbuild.yaml` | Single secret storing both the PEM-encoded TLS certificate (`portal.crt`) and private key (`portal.key`) attached to the Regional Internal HTTPS Application Load Balancer. |
+| `ge-user-session-secret` | `ge-user-portal-web` (`SESSION_SECRET`) | 256-bit cryptographic secret used to sign and verify HMAC-SHA256 OAuth state tokens and user session tokens. |
+| `ge-user-db-url` | `ge-user-portal-web`, `ge-user-portal-sync-job` (`DATABASE_URL`) | SQLAlchemy `postgresql+psycopg://` connection string targeting the `geapphub_user` database over Cloud SQL Private IP. |

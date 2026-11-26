@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# Automated GCP Deployment Script for Gemini AI Hub — User Portal
+# End-to-End CI/CD & Terraform Pipeline for Gemini AI Hub — User Portal
 # Prerequisite: Clone the repository manually first, configure
 # user-portal/deploy/config.env, and run this script from the cloned repo.
-# Automates:
-#   1. Syncing User Portal source to GCS & building container image via Cloud Build
-#   2. Terraform provisioning (user-portal/deploy/terraform/):
-#      - GCP APIs, VPC, Subnets, Proxy-Only Subnet & Private Services Access
-#      - Cloud SQL for PostgreSQL 16 (REGIONAL HA, Private IP, PITR)
-#      - GCP Secret Manager secrets & versions (OAuth Client ID/Secret, Session Secret, DB URL)
-#      - Cloud Run v2 Service (ge-user-portal-web) & 15-min Sync Job + Cloud Scheduler
-#      - Regional Internal Application Load Balancer (SSL Certificate & DNS are configured manually)
+#
+# Pipeline Stages:
+#   Stage 1: Bootstrap Google Artifact Registry & Cloud Build IAM permissions
+#   Stage 2: Bootstrap & verify the 2 Cloud Secret Manager secrets:
+#            - ge-oauth-credentials (OAuth 2.0 Client ID + Client Secret JSON)
+#            - ge-ssl-certificate   (SSL Certificate + Private Key combined PEM)
+#   Stage 3: Build & push container image to Google Artifact Registry via Cloud Build
+#   Stage 4: Provision GCP infrastructure via Terraform (reading SSL & OAuth from Secret Manager)
 # ==============================================================================
 set -euo pipefail
 
@@ -27,40 +27,40 @@ fi
 : "${GCP_PROJECT_ID:?ERROR: GCP_PROJECT_ID must be set in user-portal/deploy/config.env or environment (e.g., export GCP_PROJECT_ID=<your-gcp-project-id>)}"
 PROJECT_ID="${GCP_PROJECT_ID}"
 REGION="${GCP_REGION:-us-central1}"
-GCS_SOURCE_BUCKET="${GCS_SOURCE_BUCKET:-${PROJECT_ID}-user-portal-source}"
 AR_REPO="${AR_REPO:-ge-user-portal-repo}"
 IMAGE_NAME="${IMAGE_NAME:-ge-user-portal}"
 IMAGE_TAG="${IMAGE_TAG:-latest}"
-SSL_CERTIFICATE_ID="${SSL_CERTIFICATE_ID:-}"
+INTERNAL_DOMAIN_NAME="${INTERNAL_DOMAIN_NAME:-aihub.internal.corp}"
+
+# 2 Secret Manager Secret IDs (Single Source of Truth for OAuth & SSL)
+OAUTH_SECRET="${OAUTH_SECRET:-ge-oauth-credentials}"
+SSL_SECRET="${SSL_SECRET:-ge-ssl-certificate}"
+
 IMAGE_URI="${REGION}-docker.pkg.dev/${PROJECT_ID}/${AR_REPO}/${IMAGE_NAME}:${IMAGE_TAG}"
 
 echo "=================================================================="
-echo " Deploying Gemini AI Hub — User Portal to GCP"
-echo " Source Dir      : ${PORTAL_DIR}"
-echo " GCS Source Bkt  : gs://${GCS_SOURCE_BUCKET}"
-echo " Project         : ${PROJECT_ID}"
-echo " Region          : ${REGION}"
-echo " Image           : ${IMAGE_URI}"
+echo " Gemini AI Hub — User Portal Deployment Pipeline"
+echo " Source Dir        : ${PORTAL_DIR}"
+echo " Project           : ${PROJECT_ID}"
+echo " Region            : ${REGION}"
+echo " Artifact Registry : ${REGION}-docker.pkg.dev/${PROJECT_ID}/${AR_REPO}"
+echo " Container Image   : ${IMAGE_URI}"
+echo " OAuth Secret      : ${OAUTH_SECRET} (Client ID + Secret)"
+echo " SSL Secret        : ${SSL_SECRET} (Cert + Private Key)"
 echo "=================================================================="
 
-# 1. Bootstrap Cloud Build, Cloud Storage & Artifact Registry
-echo "[Step 1/3] Bootstrapping GCS Source Bucket 'gs://${GCS_SOURCE_BUCKET}' & Artifact Registry '${AR_REPO}'..."
+# ------------------------------------------------------------------------------
+# Stage 1: Bootstrap GCP APIs, Google Artifact Registry & Cloud Build IAM
+# ------------------------------------------------------------------------------
+echo "[Stage 1/4] Bootstrapping Google Artifact Registry '${AR_REPO}' & Cloud Secret Manager..."
 gcloud services enable \
-  storage.googleapis.com \
   cloudbuild.googleapis.com \
   artifactregistry.googleapis.com \
+  secretmanager.googleapis.com \
+  compute.googleapis.com \
+  run.googleapis.com \
   --project="${PROJECT_ID}" \
   --quiet
-
-if ! gcloud storage buckets describe "gs://${GCS_SOURCE_BUCKET}" \
-  --project="${PROJECT_ID}" \
-  --quiet >/dev/null 2>&1; then
-  gcloud storage buckets create "gs://${GCS_SOURCE_BUCKET}" \
-    --location="${REGION}" \
-    --uniform-bucket-level-access \
-    --project="${PROJECT_ID}" \
-    --quiet
-fi
 
 if ! gcloud artifacts repositories describe "${AR_REPO}" \
   --location="${REGION}" \
@@ -69,50 +69,105 @@ if ! gcloud artifacts repositories describe "${AR_REPO}" \
   gcloud artifacts repositories create "${AR_REPO}" \
     --repository-format=docker \
     --location="${REGION}" \
-    --description="Container repository for Gemini AI Hub User Portal" \
+    --description="Google Artifact Registry Docker repository for Gemini AI Hub User Portal" \
     --project="${PROJECT_ID}" \
     --quiet
 fi
 
 PROJECT_NUMBER="$(gcloud projects describe "${PROJECT_ID}" --format="value(projectNumber)" --quiet)"
-CB_SA="${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
-for ROLE in roles/storage.objectAdmin roles/artifactregistry.writer roles/logging.logWriter roles/cloudbuild.builds.builder; do
-  gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
-    --member="serviceAccount:${CB_SA}" \
-    --role="${ROLE}" --condition=None --quiet >/dev/null
+for SA_EMAIL in \
+  "${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
+  "${PROJECT_NUMBER}@cloudbuild.gserviceaccount.com"; do
+  for ROLE in \
+    roles/artifactregistry.writer \
+    roles/secretmanager.secretAccessor \
+    roles/logging.logWriter \
+    roles/cloudbuild.builds.builder; do
+    gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
+      --member="serviceAccount:${SA_EMAIL}" \
+      --role="${ROLE}" --condition=None --quiet >/dev/null 2>&1 || true
+  done
 done
 
-# 2. Sync Source Code to GCS & Submit Cloud Build from GCS Archive
-echo "[Step 2/3] Syncing User Portal source to gs://${GCS_SOURCE_BUCKET}/src/ and building image from GCS..."
-gcloud storage rsync -r --delete-unmatched-destination-objects \
-  --exclude='(\.git|node_modules|__pycache__|\.pytest_cache|dist|\.terraform).*' \
-  "${PORTAL_DIR}" "gs://${GCS_SOURCE_BUCKET}/src" \
-  --project="${PROJECT_ID}" \
-  --quiet
+# ------------------------------------------------------------------------------
+# Stage 2: Ensure the 2 Secrets (OAuth + SSL) Exist in Cloud Secret Manager
+# ------------------------------------------------------------------------------
+echo "[Stage 2/4] Configuring & verifying '${OAUTH_SECRET}' and '${SSL_SECRET}' in Cloud Secret Manager..."
 
-ARCHIVE_FILE="$(mktemp /tmp/user-portal-source.XXXXXX.tgz)"
-trap 'rm -f "${ARCHIVE_FILE}"' EXIT
-tar -czf "${ARCHIVE_FILE}" \
-  --exclude="node_modules" \
-  --exclude="__pycache__" \
-  --exclude=".pytest_cache" \
-  --exclude=".terraform" \
-  -C "${PORTAL_DIR}" .
+ensure_secret_exists() {
+  local secret_id="$1"
+  if ! gcloud secrets describe "${secret_id}" --project="${PROJECT_ID}" --quiet >/dev/null 2>&1; then
+    gcloud secrets create "${secret_id}" \
+      --replication-policy="automatic" \
+      --project="${PROJECT_ID}" \
+      --quiet
+  fi
+}
 
-gcloud storage cp "${ARCHIVE_FILE}" "gs://${GCS_SOURCE_BUCKET}/archives/user-portal-${IMAGE_TAG}.tgz" \
-  --project="${PROJECT_ID}" \
-  --quiet
+has_secret_version() {
+  local secret_id="$1"
+  gcloud secrets versions access latest --secret="${secret_id}" --project="${PROJECT_ID}" >/dev/null 2>&1
+}
 
-gcloud builds submit "gs://${GCS_SOURCE_BUCKET}/archives/user-portal-${IMAGE_TAG}.tgz" \
+ensure_secret_exists "${OAUTH_SECRET}"
+ensure_secret_exists "${SSL_SECRET}"
+
+# 1. Populate OAuth secret (ge-oauth-credentials) if JSON file or env vars provided
+if [[ -n "${OAUTH_JSON_FILE:-}" && -f "${OAUTH_JSON_FILE}" ]]; then
+  gcloud secrets versions add "${OAUTH_SECRET}" \
+    --data-file="${OAUTH_JSON_FILE}" --project="${PROJECT_ID}" --quiet
+elif [[ -n "${GOOGLE_CLIENT_ID:-}" && -n "${GOOGLE_CLIENT_SECRET:-}" ]]; then
+  printf '{"client_id":"%s","client_secret":"%s"}' "${GOOGLE_CLIENT_ID}" "${GOOGLE_CLIENT_SECRET}" | \
+    gcloud secrets versions add "${OAUTH_SECRET}" \
+      --data-file=- --project="${PROJECT_ID}" --quiet
+elif ! has_secret_version "${OAUTH_SECRET}"; then
+  echo "ERROR: Secret '${OAUTH_SECRET}' has no version in Secret Manager. Upload your OAuth credentials JSON to '${OAUTH_SECRET}' first." >&2
+  exit 1
+fi
+
+# 2. Populate SSL secret (ge-ssl-certificate) if bundle/cert+key files provided or auto-generate fallback
+if [[ -n "${SSL_BUNDLE_FILE:-}" && -f "${SSL_BUNDLE_FILE}" ]]; then
+  gcloud secrets versions add "${SSL_SECRET}" \
+    --data-file="${SSL_BUNDLE_FILE}" --project="${PROJECT_ID}" --quiet
+elif [[ -n "${SSL_CERT_FILE:-}" && -f "${SSL_CERT_FILE}" && -n "${SSL_KEY_FILE:-}" && -f "${SSL_KEY_FILE}" ]]; then
+  cat "${SSL_CERT_FILE}" <(echo) "${SSL_KEY_FILE}" | \
+    gcloud secrets versions add "${SSL_SECRET}" \
+      --data-file=- --project="${PROJECT_ID}" --quiet
+elif ! has_secret_version "${SSL_SECRET}"; then
+  echo "No SSL bundle found in Secret Manager ('${SSL_SECRET}'); generating internal TLS certificate + key bundle for ${INTERNAL_DOMAIN_NAME}..."
+  TMP_CERT_DIR="$(mktemp -d /tmp/user-portal-ssl.XXXXXX)"
+  trap 'rm -rf "${TMP_CERT_DIR}"' EXIT
+  openssl req -x509 -nodes -newkey rsa:2048 \
+    -days 365 \
+    -keyout "${TMP_CERT_DIR}/portal.key" \
+    -out "${TMP_CERT_DIR}/portal.crt" \
+    -subj "/CN=${INTERNAL_DOMAIN_NAME}/O=Gemini AI Hub" \
+    -addext "subjectAltName=DNS:${INTERNAL_DOMAIN_NAME}" >/dev/null 2>&1
+  cat "${TMP_CERT_DIR}/portal.crt" <(echo) "${TMP_CERT_DIR}/portal.key" > "${TMP_CERT_DIR}/portal-bundle.pem"
+  gcloud secrets versions add "${SSL_SECRET}" \
+    --data-file="${TMP_CERT_DIR}/portal-bundle.pem" --project="${PROJECT_ID}" --quiet
+fi
+
+# ------------------------------------------------------------------------------
+# Stage 3: Build & Push Container Image to Google Artifact Registry via Cloud Build
+# ------------------------------------------------------------------------------
+echo "[Stage 3/4] Building and pushing container image to Google Artifact Registry (${IMAGE_URI})..."
+gcloud builds submit "${PORTAL_DIR}" \
   --config="${PORTAL_DIR}/cloudbuild.yaml" \
-  --gcs-source-staging-dir="gs://${GCS_SOURCE_BUCKET}/staging" \
-  --substitutions="_REGION=${REGION},_AR_REPO=${AR_REPO},_IMAGE_NAME=${IMAGE_NAME},_TAG=${IMAGE_TAG}" \
+  --substitutions="_REGION=${REGION},_AR_REPO=${AR_REPO},_IMAGE_NAME=${IMAGE_NAME},_TAG=${IMAGE_TAG},_OAUTH_SECRET=${OAUTH_SECRET},_SSL_SECRET=${SSL_SECRET},_INTERNAL_DOMAIN_NAME=${INTERNAL_DOMAIN_NAME},_DEPLOY_INFRA=false" \
   --project="${PROJECT_ID}" \
   --quiet
 
-# 3. Provision Infrastructure via Terraform (SSL Certificate & DNS are configured manually)
-echo "[Step 3/3] Provisioning GCP stack via Terraform (user-portal/deploy/terraform/)..."
+# ------------------------------------------------------------------------------
+# Stage 4: Provision Infrastructure via Terraform (SSL & OAuth from Secret Manager)
+# ------------------------------------------------------------------------------
+echo "[Stage 4/4] Provisioning GCP infrastructure via Terraform (user-portal/deploy/terraform/)..."
 terraform -chdir="${TF_DIR}" init
+
+# Remove deprecated GCS source bucket from Terraform state if present from an older deployment
+if terraform -chdir="${TF_DIR}" state show "google_storage_bucket.user_portal_source_bucket" >/dev/null 2>&1; then
+  terraform -chdir="${TF_DIR}" state rm "google_storage_bucket.user_portal_source_bucket" >/dev/null 2>&1 || true
+fi
 
 import_if_missing() {
   local addr="$1"
@@ -121,16 +176,22 @@ import_if_missing() {
     terraform -chdir="${TF_DIR}" import \
       -var="project_id=${PROJECT_ID}" \
       -var="region=${REGION}" \
+      -var="ar_repo_id=${AR_REPO}" \
       -var="container_image=${IMAGE_URI}" \
+      -var="oauth_secret_name=${OAUTH_SECRET}" \
+      -var="ssl_secret_name=${SSL_SECRET}" \
       "${addr}" "${id}" >/dev/null 2>&1 || true
   fi
 }
 
-import_if_missing "google_storage_bucket.user_portal_source_bucket" "${GCS_SOURCE_BUCKET}"
 import_if_missing "google_artifact_registry_repository.user_portal_repo" "projects/${PROJECT_ID}/locations/${REGION}/repositories/${AR_REPO}"
 import_if_missing "google_service_account.web_sa" "projects/${PROJECT_ID}/serviceAccounts/sa-user-portal-web@${PROJECT_ID}.iam.gserviceaccount.com"
 import_if_missing "google_service_account.sync_sa" "projects/${PROJECT_ID}/serviceAccounts/sa-user-portal-sync@${PROJECT_ID}.iam.gserviceaccount.com"
-for SEC_ID in ge-user-db-url ge-oauth-client-id ge-oauth-client-secret ge-user-session-secret; do
+for SEC_ID in \
+  ge-user-db-url \
+  ge-user-session-secret \
+  "${OAUTH_SECRET}" \
+  "${SSL_SECRET}"; do
   import_if_missing "google_secret_manager_secret.secrets[\"${SEC_ID}\"]" "projects/${PROJECT_ID}/secrets/${SEC_ID}"
 done
 import_if_missing "google_cloud_run_v2_service.user_portal_web" "projects/${PROJECT_ID}/locations/${REGION}/services/ge-user-portal-web"
@@ -140,12 +201,13 @@ import_if_missing "google_cloud_scheduler_job.user_portal_sync_schedule" "projec
 terraform -chdir="${TF_DIR}" apply -auto-approve \
   -var="project_id=${PROJECT_ID}" \
   -var="region=${REGION}" \
+  -var="ar_repo_id=${AR_REPO}" \
   -var="container_image=${IMAGE_URI}" \
-  -var="google_client_id=${GOOGLE_CLIENT_ID:-}" \
-  -var="google_client_secret=${GOOGLE_CLIENT_SECRET:-}" \
-  -var="ssl_certificate_id=${SSL_CERTIFICATE_ID}"
+  -var="oauth_secret_name=${OAUTH_SECRET}" \
+  -var="ssl_secret_name=${SSL_SECRET}" \
+  -var="internal_domain_name=${INTERNAL_DOMAIN_NAME}"
 
 echo "=================================================================="
-echo " Terraform Deployment Complete! Configure SSL & DNS Manually Next."
+echo " Deployment Pipeline Complete!"
 echo "=================================================================="
 terraform -chdir="${TF_DIR}" output
