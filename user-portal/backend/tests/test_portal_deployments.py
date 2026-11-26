@@ -112,6 +112,8 @@ def test_sync_job_and_gcp_deployment_manifests(
         encoding="utf-8"
     )
     assert "Dockerfile" in cloudbuild_user
+    assert "ge-user-portal-source" in cloudbuild_user
+    assert "gcloud artifacts generic download" in cloudbuild_user
     assert "ge-user-portal-repo" in cloudbuild_user
     assert "availableSecrets" in cloudbuild_user
     assert "ge-oauth-credentials" in cloudbuild_user
@@ -123,6 +125,8 @@ def test_sync_job_and_gcp_deployment_manifests(
     ).read_text(encoding="utf-8")
     assert "GCS_SOURCE_BUCKET" not in deploy_script
     assert "artifactregistry.googleapis.com" in deploy_script
+    assert "gcloud artifacts generic upload" in deploy_script
+    assert "gcloud builds submit --no-source" in deploy_script
     assert "ge-oauth-credentials" in deploy_script
     assert "SSL_CERTIFICATE_ID" in deploy_script
     assert "_SSL_SECRET" not in deploy_script

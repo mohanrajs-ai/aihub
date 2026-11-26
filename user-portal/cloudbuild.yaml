@@ -1,12 +1,20 @@
 # ==============================================================================
 # Cloud Build CI/CD Pipeline for Gemini AI Hub — Standalone User Portal
-# - Validates OAuth credentials secret (ge-oauth-credentials) in Cloud Secret Manager
-# - Builds & pushes container image directly to Google Artifact Registry
-# - Optionally executes Terraform infrastructure deployment (_DEPLOY_INFRA=true)
+# - Stage 1: Downloads User Portal source archive from Google Artifact Registry (GENERIC repo)
+# - Stage 2: Validates OAuth credentials secret (ge-oauth-credentials) in Cloud Secret Manager
+# - Stage 3: Builds multi-stage container image from extracted source
+# - Stage 4: Pushes container image to Google Artifact Registry (DOCKER repo)
+# - Stage 5: Optional Terraform infrastructure deployment (_DEPLOY_INFRA=true)
+#
+# Usage (Zero GCS Bucket Dependency via --no-source):
+#   gcloud builds submit --no-source --config=user-portal/cloudbuild.yaml ...
 # ==============================================================================
 
 substitutions:
   _REGION: us-central1
+  _AR_SOURCE_REPO: ge-user-portal-source
+  _SOURCE_PACKAGE: user-portal-source
+  _SOURCE_VERSION: v1
   _AR_REPO: ge-user-portal-repo
   _IMAGE_NAME: ge-user-portal
   _TAG: latest
@@ -16,17 +24,53 @@ substitutions:
   _DEPLOY_INFRA: "false"
 
 steps:
-  # Stage 1: Verify OAuth JSON secret in Google Cloud Secret Manager
+  # Stage 1: Fetch User Portal source code archive from Google Artifact Registry (GENERIC repo)
+  - id: fetch-source-from-artifact-registry
+    name: gcr.io/cloud-builders/gcloud
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        if [[ -f "/workspace/Dockerfile" ]]; then
+          echo "[Stage 1] Source already present in /workspace; skipping Artifact Registry source download."
+          exit 0
+        fi
+        REGION="${_REGION}"
+        AR_SOURCE_REPO="${_AR_SOURCE_REPO}"
+        SOURCE_PACKAGE="${_SOURCE_PACKAGE}"
+        SOURCE_VERSION="${_SOURCE_VERSION}"
+        echo "[Stage 1] Downloading source package '${SOURCE_PACKAGE}:${SOURCE_VERSION}' from Google Artifact Registry '${AR_SOURCE_REPO}'..."
+        gcloud artifacts generic download \
+          --location="$${REGION:-us-central1}" \
+          --project="${PROJECT_ID}" \
+          --repository="$${AR_SOURCE_REPO:-ge-user-portal-source}" \
+          --package="$${SOURCE_PACKAGE:-user-portal-source}" \
+          --version="$${SOURCE_VERSION:-v1}" \
+          --destination=/workspace/
+        ARCHIVE_PATH="$(find /workspace -maxdepth 2 -name '*.tgz' -o -name '*.tar.gz' | head -n 1)"
+        if [[ -z "$${ARCHIVE_PATH}" ]]; then
+          echo "ERROR: No source archive (.tgz) found after downloading from Artifact Registry." >&2
+          exit 1
+        fi
+        echo "Extracting $${ARCHIVE_PATH} into /workspace..."
+        tar -xzf "$${ARCHIVE_PATH}" -C /workspace
+        rm -f "$${ARCHIVE_PATH}"
+        ls -la /workspace
+
+  # Stage 2: Verify OAuth JSON secret in Google Cloud Secret Manager
   - id: verify-cloud-secrets
     name: gcr.io/cloud-builders/gcloud
     entrypoint: bash
+    waitFor:
+      - fetch-source-from-artifact-registry
     secretEnv:
       - GOOGLE_OAUTH_CREDENTIALS
     args:
       - -c
       - |
         set -euo pipefail
-        echo "[Stage 1] Verifying Cloud Secret Manager secret '${_OAUTH_SECRET}'..."
+        echo "[Stage 2] Verifying Cloud Secret Manager secret '${_OAUTH_SECRET}'..."
         if ! grep -q "client_id" <<<"$${GOOGLE_OAUTH_CREDENTIALS:-}" || ! grep -q "client_secret" <<<"$${GOOGLE_OAUTH_CREDENTIALS:-}"; then
           echo "ERROR: Secret '${_OAUTH_SECRET}' must contain JSON with both 'client_id' and 'client_secret'." >&2
           exit 1
@@ -36,7 +80,7 @@ steps:
           echo "Using SSL Certificate ID: ${_SSL_CERTIFICATE_ID}"
         fi
 
-  # Stage 2: Build multi-stage User Portal container image
+  # Stage 3: Build multi-stage User Portal container image
   - id: build-user-portal-image
     name: gcr.io/cloud-builders/docker
     entrypoint: bash
@@ -52,10 +96,10 @@ steps:
         TAG="${_TAG}"
         IMAGE_URI="$${REGION:-us-central1}-docker.pkg.dev/${PROJECT_ID}/$${AR_REPO:-ge-user-portal-repo}/$${IMAGE_NAME:-ge-user-portal}:$${TAG:-latest}"
         LATEST_URI="$${REGION:-us-central1}-docker.pkg.dev/${PROJECT_ID}/$${AR_REPO:-ge-user-portal-repo}/$${IMAGE_NAME:-ge-user-portal}:latest"
-        echo "[Stage 2] Building container image for Google Artifact Registry: $${IMAGE_URI}"
+        echo "[Stage 3] Building container image for Google Artifact Registry: $${IMAGE_URI}"
         docker build -f Dockerfile -t "$${IMAGE_URI}" -t "$${LATEST_URI}" .
 
-  # Stage 3: Push container image to Google Artifact Registry
+  # Stage 4: Push container image to Google Artifact Registry (DOCKER repo)
   - id: push-user-portal-image
     name: gcr.io/cloud-builders/docker
     entrypoint: bash
@@ -71,13 +115,13 @@ steps:
         TAG="${_TAG}"
         IMAGE_URI="$${REGION:-us-central1}-docker.pkg.dev/${PROJECT_ID}/$${AR_REPO:-ge-user-portal-repo}/$${IMAGE_NAME:-ge-user-portal}:$${TAG:-latest}"
         LATEST_URI="$${REGION:-us-central1}-docker.pkg.dev/${PROJECT_ID}/$${AR_REPO:-ge-user-portal-repo}/$${IMAGE_NAME:-ge-user-portal}:latest"
-        echo "[Stage 3] Pushing container image to Google Artifact Registry: $${IMAGE_URI}"
+        echo "[Stage 4] Pushing container image to Google Artifact Registry: $${IMAGE_URI}"
         docker push "$${IMAGE_URI}"
         if [[ "$${IMAGE_URI}" != "$${LATEST_URI}" ]]; then
           docker push "$${LATEST_URI}"
         fi
 
-  # Stage 4: Optional Terraform Infrastructure Deployment (_DEPLOY_INFRA=true)
+  # Stage 5: Optional Terraform Infrastructure Deployment (_DEPLOY_INFRA=true)
   - id: terraform-deploy
     name: hashicorp/terraform:1.9
     entrypoint: sh
@@ -88,19 +132,21 @@ steps:
       - |
         set -eu
         if [ "${_DEPLOY_INFRA}" != "true" ]; then
-          echo "[Stage 4] Skipping in-build Terraform apply (_DEPLOY_INFRA=${_DEPLOY_INFRA})."
+          echo "[Stage 5] Skipping in-build Terraform apply (_DEPLOY_INFRA=${_DEPLOY_INFRA})."
           exit 0
         fi
         REGION="${_REGION}"
+        AR_SOURCE_REPO="${_AR_SOURCE_REPO}"
         AR_REPO="${_AR_REPO}"
         IMAGE_NAME="${_IMAGE_NAME}"
         TAG="${_TAG}"
         IMAGE_URI="$${REGION:-us-central1}-docker.pkg.dev/${PROJECT_ID}/$${AR_REPO:-ge-user-portal-repo}/$${IMAGE_NAME:-ge-user-portal}:$${TAG:-latest}"
-        echo "[Stage 4] Applying Terraform stack from deploy/terraform..."
+        echo "[Stage 5] Applying Terraform stack from deploy/terraform..."
         terraform -chdir=deploy/terraform init -input=false
         terraform -chdir=deploy/terraform apply -auto-approve -input=false \
           -var="project_id=${PROJECT_ID}" \
           -var="region=$${REGION:-us-central1}" \
+          -var="ar_source_repo_id=$${AR_SOURCE_REPO:-ge-user-portal-source}" \
           -var="ar_repo_id=$${AR_REPO:-ge-user-portal-repo}" \
           -var="container_image=$${IMAGE_URI}" \
           -var="oauth_secret_name=${_OAUTH_SECRET}" \

@@ -75,8 +75,16 @@ resource "google_service_networking_connection" "private_vpc_connection" {
 }
 
 # ============================================================================
-# 2. Google Artifact Registry & Least-Privilege Service Accounts
+# 2. Google Artifact Registry (Source GENERIC + Image DOCKER) & Service Accounts
 # ============================================================================
+
+resource "google_artifact_registry_repository" "user_portal_source_repo" {
+  location      = var.region
+  repository_id = var.ar_source_repo_id
+  description   = "Google Artifact Registry Generic repository for Gemini AI Hub User Portal source code"
+  format        = "GENERIC"
+  depends_on    = [google_project_service.enabled_apis]
+}
 
 resource "google_artifact_registry_repository" "user_portal_repo" {
   location      = var.region

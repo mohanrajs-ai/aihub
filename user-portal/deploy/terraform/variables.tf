@@ -9,6 +9,12 @@ variable "region" {
   default     = "us-central1"
 }
 
+variable "ar_source_repo_id" {
+  description = "Google Artifact Registry Generic repository ID for storing User Portal source code archives"
+  type        = string
+  default     = "ge-user-portal-source"
+}
+
 variable "ar_repo_id" {
   description = "Google Artifact Registry Docker repository ID"
   type        = string

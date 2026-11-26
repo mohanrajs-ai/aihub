@@ -114,7 +114,10 @@ Edit `user-portal/deploy/config.env`:
 export GCP_PROJECT_ID="<YOUR_GCP_PROJECT_ID>"
 export GCP_REGION="us-central1"
 
-# 2. Google Artifact Registry Image Settings
+# 2. Google Artifact Registry Source (GENERIC) & Image (DOCKER) Settings
+export AR_SOURCE_REPO="ge-user-portal-source"
+export SOURCE_PACKAGE="user-portal-source"
+export SOURCE_VERSION="v1"
 export AR_REPO="ge-user-portal-repo"
 export IMAGE_NAME="ge-user-portal"
 export IMAGE_TAG="latest"
@@ -152,20 +155,30 @@ chmod +x user-portal/deploy/deploy_user_portal_gcp.sh
 
 ---
 
-## 4. Option B: Step-by-Step Artifact Registry Build & Terraform Apply
+## 4. Option B: Step-by-Step Artifact Registry Source Upload, Cloud Build (`--no-source`) & Terraform Apply
 
 ```bash
 source user-portal/deploy/config.env
 export GCP_REGION="${GCP_REGION:-us-central1}"
+export AR_SOURCE_REPO="${AR_SOURCE_REPO:-ge-user-portal-source}"
+export SOURCE_PACKAGE="${SOURCE_PACKAGE:-user-portal-source}"
+export SOURCE_VERSION="${SOURCE_VERSION:-v1}"
 export AR_REPO="${AR_REPO:-ge-user-portal-repo}"
 export IMAGE_NAME="${IMAGE_NAME:-ge-user-portal}"
 export IMAGE_TAG="${IMAGE_TAG:-latest}"
 export SSL_CERTIFICATE_ID="${SSL_CERTIFICATE_ID:-projects/${GCP_PROJECT_ID}/regions/${GCP_REGION}/sslCertificates/cert-ge-user-portal-internal}"
 export IMAGE_URI="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${AR_REPO}/${IMAGE_NAME}:${IMAGE_TAG}"
 
-# 1. Enable APIs & create the Google Artifact Registry Docker repository
+# 1. Enable APIs & create the Google Artifact Registry repositories (GENERIC for source + DOCKER for images)
 gcloud services enable cloudbuild.googleapis.com artifactregistry.googleapis.com secretmanager.googleapis.com \
   --project="${GCP_PROJECT_ID}"
+
+gcloud artifacts repositories describe "${AR_SOURCE_REPO}" --location="${GCP_REGION}" --project="${GCP_PROJECT_ID}" >/dev/null 2>&1 || \
+  gcloud artifacts repositories create "${AR_SOURCE_REPO}" \
+    --repository-format=generic \
+    --location="${GCP_REGION}" \
+    --description="Google Artifact Registry Generic repository for Gemini AI Hub User Portal source code" \
+    --project="${GCP_PROJECT_ID}"
 
 gcloud artifacts repositories describe "${AR_REPO}" --location="${GCP_REGION}" --project="${GCP_PROJECT_ID}" >/dev/null 2>&1 || \
   gcloud artifacts repositories create "${AR_REPO}" \
@@ -174,19 +187,50 @@ gcloud artifacts repositories describe "${AR_REPO}" --location="${GCP_REGION}" -
     --description="Google Artifact Registry Docker repository for Gemini AI Hub User Portal" \
     --project="${GCP_PROJECT_ID}"
 
-# 2. Submit Cloud Build pipeline (validates OAuth Secret Manager secret & pushes image to Artifact Registry)
-gcloud builds submit user-portal/ \
+# Grant Cloud Build Service Account permission to read source from Artifact Registry and push Docker images
+PROJECT_NUMBER="$(gcloud projects describe "${GCP_PROJECT_ID}" --format="value(projectNumber)")"
+for ROLE in roles/artifactregistry.reader roles/artifactregistry.writer roles/secretmanager.secretAccessor roles/logging.logWriter; do
+  gcloud projects add-iam-policy-binding "${GCP_PROJECT_ID}" \
+    --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
+    --role="${ROLE}" --condition=None --quiet >/dev/null
+done
+
+# 2. Package User Portal source code & upload directly to Google Artifact Registry (GENERIC repository)
+tar -czf /tmp/user-portal-source.tgz \
+  --exclude="node_modules" \
+  --exclude="__pycache__" \
+  --exclude=".pytest_cache" \
+  --exclude=".terraform" \
+  -C user-portal .
+
+gcloud artifacts versions delete "${SOURCE_VERSION}" \
+  --package="${SOURCE_PACKAGE}" \
+  --repository="${AR_SOURCE_REPO}" \
+  --location="${GCP_REGION}" \
+  --project="${GCP_PROJECT_ID}" --quiet >/dev/null 2>&1 || true
+
+gcloud artifacts generic upload \
+  --location="${GCP_REGION}" \
+  --project="${GCP_PROJECT_ID}" \
+  --repository="${AR_SOURCE_REPO}" \
+  --package="${SOURCE_PACKAGE}" \
+  --version="${SOURCE_VERSION}" \
+  --source=/tmp/user-portal-source.tgz
+
+# 3. Submit Cloud Build pipeline with --no-source (fetches source from Artifact Registry instead of GCS)
+gcloud builds submit --no-source \
   --config=user-portal/cloudbuild.yaml \
-  --substitutions="_REGION=${GCP_REGION},_AR_REPO=${AR_REPO},_IMAGE_NAME=${IMAGE_NAME},_TAG=${IMAGE_TAG},_OAUTH_SECRET=${OAUTH_SECRET:-ge-oauth-credentials},_SSL_CERTIFICATE_ID=${SSL_CERTIFICATE_ID}" \
+  --substitutions="_REGION=${GCP_REGION},_AR_SOURCE_REPO=${AR_SOURCE_REPO},_SOURCE_PACKAGE=${SOURCE_PACKAGE},_SOURCE_VERSION=${SOURCE_VERSION},_AR_REPO=${AR_REPO},_IMAGE_NAME=${IMAGE_NAME},_TAG=${IMAGE_TAG},_OAUTH_SECRET=${OAUTH_SECRET:-ge-oauth-credentials},_SSL_CERTIFICATE_ID=${SSL_CERTIFICATE_ID}" \
   --project="${GCP_PROJECT_ID}"
 
-# 3. Apply the Terraform stack (attaches SSL_CERTIFICATE_ID & mounts OAuth secret from Cloud Secret Manager)
+# 4. Apply the Terraform stack (attaches SSL_CERTIFICATE_ID & mounts OAuth secret from Cloud Secret Manager)
 cd user-portal/deploy/terraform
 terraform init
 
 terraform apply \
   -var="project_id=${GCP_PROJECT_ID}" \
   -var="region=${GCP_REGION}" \
+  -var="ar_source_repo_id=${AR_SOURCE_REPO}" \
   -var="ar_repo_id=${AR_REPO}" \
   -var="container_image=${IMAGE_URI}" \
   -var="oauth_secret_name=${OAUTH_SECRET:-ge-oauth-credentials}" \

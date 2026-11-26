@@ -1,3 +1,8 @@
+output "artifact_registry_source_repository" {
+  description = "Google Artifact Registry Generic repository for User Portal source archives"
+  value       = "projects/${var.project_id}/locations/${var.region}/repositories/${google_artifact_registry_repository.user_portal_source_repo.repository_id}"
+}
+
 output "artifact_registry_repository" {
   description = "Google Artifact Registry Docker repository URI for User Portal container images"
   value       = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.user_portal_repo.repository_id}"
