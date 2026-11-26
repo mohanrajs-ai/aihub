@@ -83,8 +83,8 @@ flowchart TB
 
 | Service Account | Attached Component | Granted IAM Roles | Purpose |
 | :--- | :--- | :--- | :--- |
-| `sa-user-portal-web@${GCP_PROJECT_ID}.iam.gserviceaccount.com` | Cloud Run Service (`ge-user-portal-web`) | `roles/cloudsql.client`, `roles/secretmanager.secretAccessor`, `roles/logging.logWriter`, `roles/monitoring.metricWriter` | Serves User Portal UI & APIs, reads/writes `geapphub_user` DB (`users`, `access_requests`), reads OAuth secrets. Has **no** write access to Discovery Engine or Terraform state. |
-| `sa-user-portal-sync@${GCP_PROJECT_ID}.iam.gserviceaccount.com` | Cloud Run Job (`ge-user-portal-sync-job`) + Cloud Scheduler | `roles/cloudsql.client`, `roles/secretmanager.secretAccessor`, `roles/discoveryengine.viewer`, `roles/run.invoker`, `roles/logging.logWriter` | Periodically queries Discovery Engine engines and Cloud Identity group memberships and updates `geapphub_user`. |
+| `sa-user-portal-web@${GCP_PROJECT_ID}.iam.gserviceaccount.com` | Cloud Run Service (`ge-user-portal-web`) | Project: `roles/cloudsql.client`, `roles/secretmanager.secretAccessor`, `roles/logging.logWriter`, `roles/monitoring.metricWriter`<br/>Org (`${GCP_ORG_ID}`): `roles/cloudidentity.groupsViewer` | Serves User Portal UI & APIs, reads/writes `geapphub_user` DB (`users`, `access_requests`), reads OAuth secrets, and verifies transitive Cloud Identity group memberships. |
+| `sa-user-portal-sync@${GCP_PROJECT_ID}.iam.gserviceaccount.com` | Cloud Run Job (`ge-user-portal-sync-job`) + Cloud Scheduler | Project: `roles/cloudsql.client`, `roles/secretmanager.secretAccessor`, `roles/discoveryengine.viewer`, `roles/run.invoker`, `roles/logging.logWriter`<br/>Org (`${GCP_ORG_ID}`): `roles/cloudidentity.groupsViewer` | Periodically queries Discovery Engine engines and Cloud Identity group memberships (`groups:lookup`, `memberships`) and updates `geapphub_user`. |
 
 ---
 

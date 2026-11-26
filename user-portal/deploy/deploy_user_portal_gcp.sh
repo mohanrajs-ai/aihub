@@ -25,6 +25,7 @@ fi
 
 : "${GCP_PROJECT_ID:?ERROR: GCP_PROJECT_ID must be set in user-portal/deploy/config.env or environment (e.g., export GCP_PROJECT_ID=<your-gcp-project-id>)}"
 PROJECT_ID="${GCP_PROJECT_ID}"
+ORG_ID="${GCP_ORG_ID:-$(gcloud organizations list --format='value(ID)' --limit=1 2>/dev/null || true)}"
 REGION="${GCP_REGION:-us-central1}"
 AR_SOURCE_REPO="${AR_SOURCE_REPO:-ge-user-portal-source}"
 SOURCE_PACKAGE="${SOURCE_PACKAGE:-user-portal-source}"
@@ -208,6 +209,7 @@ import_if_missing "google_cloud_scheduler_job.user_portal_sync_schedule" "projec
 
 terraform -chdir="${TF_DIR}" apply -auto-approve \
   -var="project_id=${PROJECT_ID}" \
+  -var="org_id=${ORG_ID}" \
   -var="region=${REGION}" \
   -var="ar_source_repo_id=${AR_SOURCE_REPO}" \
   -var="ar_repo_id=${AR_REPO}" \
@@ -215,6 +217,22 @@ terraform -chdir="${TF_DIR}" apply -auto-approve \
   -var="oauth_secret_name=${OAUTH_SECRET}" \
   -var="ssl_certificate_id=${SSL_CERTIFICATE_ID}" \
   -var="internal_domain_name=${INTERNAL_DOMAIN_NAME}"
+
+# ------------------------------------------------------------------------------
+# Stage 5: Execute Initial Cloud Run Sync Job & Verify Sync Output
+# ------------------------------------------------------------------------------
+echo "[Stage 5/5] Executing Cloud Run Sync Job ('ge-user-portal-sync-job') and verifying database sync..."
+gcloud run jobs execute ge-user-portal-sync-job \
+  --region="${REGION}" \
+  --project="${PROJECT_ID}" \
+  --wait
+
+echo "Latest Sync Job Summary from Cloud Logging:"
+gcloud logging read \
+  'resource.type="cloud_run_job" AND resource.labels.job_name="ge-user-portal-sync-job" AND jsonPayload.trigger_source="cloud_run_job"' \
+  --project="${PROJECT_ID}" \
+  --limit=1 \
+  --format="json(jsonPayload)" || true
 
 echo "=================================================================="
 echo " Deployment Pipeline Complete!"

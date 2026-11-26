@@ -125,6 +125,13 @@ resource "google_project_iam_member" "sync_sa_roles" {
   member  = "serviceAccount:${google_service_account.sync_sa.email}"
 }
 
+resource "google_organization_iam_member" "cloud_identity_groups_viewer" {
+  for_each = var.org_id != "" ? toset(["web", "sync"]) : toset([])
+  org_id   = var.org_id
+  role     = "roles/cloudidentity.groupsViewer"
+  member   = "serviceAccount:${each.key == "web" ? google_service_account.web_sa.email : google_service_account.sync_sa.email}"
+}
+
 # ============================================================================
 # 3. Cloud SQL for PostgreSQL 16 (REGIONAL HA, Private IP Only, PITR)
 # ============================================================================
@@ -201,7 +208,7 @@ resource "google_secret_manager_secret_version" "session_secret_version" {
 resource "google_cloud_run_v2_service" "user_portal_web" {
   name     = "ge-user-portal-web"
   location = var.region
-  ingress  = "INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER"
+  ingress  = var.cloud_run_ingress
   depends_on = [
     google_project_iam_member.web_sa_roles,
     google_secret_manager_secret_version.db_url_version,

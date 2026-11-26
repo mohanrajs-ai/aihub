@@ -141,6 +141,8 @@ def test_sync_job_and_gcp_deployment_manifests(
     assert "INTERNAL_MANAGED" in tf_main
     assert "sa-user-portal-web" in tf_main
     assert "sa-user-portal-sync" in tf_main
+    assert "google_organization_iam_member" in tf_main
+    assert "roles/cloudidentity.groupsViewer" in tf_main
     assert "google_artifact_registry_repository" in tf_main
     assert "resolved_ssl_certificate_id" in tf_main
     assert "GOOGLE_OAUTH_CREDENTIALS" in tf_main

@@ -3,6 +3,12 @@ variable "project_id" {
   type        = string
 }
 
+variable "org_id" {
+  description = "Google Cloud Organization ID used to grant roles/cloudidentity.groupsViewer to the Web and Sync service accounts"
+  type        = string
+  default     = ""
+}
+
 variable "region" {
   description = "Primary GCP Region for Google Artifact Registry, Cloud Run, Internal ALB, and Cloud SQL HA"
   type        = string
@@ -49,6 +55,12 @@ variable "internal_domain_name" {
   description = "Internal FQDN for the User Portal"
   type        = string
   default     = "aihub.internal.corp"
+}
+
+variable "cloud_run_ingress" {
+  description = "Cloud Run ingress setting (INGRESS_TRAFFIC_ALL allows direct .run.app access; INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER restricts to VPC/ILB)"
+  type        = string
+  default     = "INGRESS_TRAFFIC_ALL"
 }
 
 variable "subnet_cidr" {
