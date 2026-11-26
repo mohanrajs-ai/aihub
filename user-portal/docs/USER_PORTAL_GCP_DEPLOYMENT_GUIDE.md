@@ -166,7 +166,6 @@ export SOURCE_VERSION="${SOURCE_VERSION:-v1}"
 export AR_REPO="${AR_REPO:-ge-user-portal-repo}"
 export IMAGE_NAME="${IMAGE_NAME:-ge-user-portal}"
 export IMAGE_TAG="${IMAGE_TAG:-latest}"
-export SSL_CERTIFICATE_ID="${SSL_CERTIFICATE_ID:-projects/${GCP_PROJECT_ID}/regions/${GCP_REGION}/sslCertificates/cert-ge-user-portal-internal}"
 export IMAGE_URI="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${AR_REPO}/${IMAGE_NAME}:${IMAGE_TAG}"
 
 # 1. Enable APIs & create the Google Artifact Registry repositories (GENERIC for source + DOCKER for images)
