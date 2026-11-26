@@ -1,6 +1,6 @@
 # ==============================================================================
 # Cloud Build CI/CD Pipeline for Gemini AI Hub — Standalone User Portal
-# - Validates the 2 Cloud Secret Manager secrets (ge-oauth-credentials & ge-ssl-certificate)
+# - Validates OAuth credentials secret (ge-oauth-credentials) in Cloud Secret Manager
 # - Builds & pushes container image directly to Google Artifact Registry
 # - Optionally executes Terraform infrastructure deployment (_DEPLOY_INFRA=true)
 # ==============================================================================
@@ -11,32 +11,30 @@ substitutions:
   _IMAGE_NAME: ge-user-portal
   _TAG: latest
   _OAUTH_SECRET: ge-oauth-credentials
-  _SSL_SECRET: ge-ssl-certificate
+  _SSL_CERTIFICATE_ID: ""
   _INTERNAL_DOMAIN_NAME: aihub.internal.corp
   _DEPLOY_INFRA: "false"
 
 steps:
-  # Stage 1: Verify the 2 secrets (OAuth JSON & SSL Bundle) in Google Cloud Secret Manager
+  # Stage 1: Verify OAuth JSON secret in Google Cloud Secret Manager
   - id: verify-cloud-secrets
     name: gcr.io/cloud-builders/gcloud
     entrypoint: bash
     secretEnv:
       - GOOGLE_OAUTH_CREDENTIALS
-      - SSL_BUNDLE_PEM
     args:
       - -c
       - |
         set -euo pipefail
-        echo "[Stage 1] Verifying Cloud Secret Manager secrets ('${_OAUTH_SECRET}' & '${_SSL_SECRET}')..."
+        echo "[Stage 1] Verifying Cloud Secret Manager secret '${_OAUTH_SECRET}'..."
         if ! grep -q "client_id" <<<"$${GOOGLE_OAUTH_CREDENTIALS:-}" || ! grep -q "client_secret" <<<"$${GOOGLE_OAUTH_CREDENTIALS:-}"; then
           echo "ERROR: Secret '${_OAUTH_SECRET}' must contain JSON with both 'client_id' and 'client_secret'." >&2
           exit 1
         fi
-        if ! grep -q "BEGIN CERTIFICATE" <<<"$${SSL_BUNDLE_PEM:-}" || ! grep -q "PRIVATE KEY" <<<"$${SSL_BUNDLE_PEM:-}"; then
-          echo "ERROR: Secret '${_SSL_SECRET}' must contain both the PEM certificate and private key." >&2
-          exit 1
+        echo "Secret '${_OAUTH_SECRET}' verified in Cloud Secret Manager."
+        if [[ -n "${_SSL_CERTIFICATE_ID}" ]]; then
+          echo "Using SSL Certificate ID: ${_SSL_CERTIFICATE_ID}"
         fi
-        echo "Both secrets ('${_OAUTH_SECRET}' and '${_SSL_SECRET}') verified in Cloud Secret Manager."
 
   # Stage 2: Build multi-stage User Portal container image
   - id: build-user-portal-image
@@ -106,15 +104,13 @@ steps:
           -var="ar_repo_id=$${AR_REPO:-ge-user-portal-repo}" \
           -var="container_image=$${IMAGE_URI}" \
           -var="oauth_secret_name=${_OAUTH_SECRET}" \
-          -var="ssl_secret_name=${_SSL_SECRET}" \
+          -var="ssl_certificate_id=${_SSL_CERTIFICATE_ID}" \
           -var="internal_domain_name=${_INTERNAL_DOMAIN_NAME}"
 
 availableSecrets:
   secretManager:
     - versionName: projects/$PROJECT_ID/secrets/${_OAUTH_SECRET}/versions/latest
       env: GOOGLE_OAUTH_CREDENTIALS
-    - versionName: projects/$PROJECT_ID/secrets/${_SSL_SECRET}/versions/latest
-      env: SSL_BUNDLE_PEM
 
 images:
   - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/${_IMAGE_NAME}:${_TAG}

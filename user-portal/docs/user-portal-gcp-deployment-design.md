@@ -8,14 +8,14 @@ This document defines the production Google Cloud Platform (GCP) deployment arch
 | :--- | :--- |
 | **1. Compute & Packaging** | **Single Cloud Run v2 Service (`ge-user-portal-web`)** built from [`user-portal/Dockerfile`](../Dockerfile), serving the compiled React 18 SPA (`user-portal/frontend/dist`) and FastAPI backend (`user-portal/backend/app/main.py`) on a single origin (`:8080`). |
 | **2. Ingress & Network Perimeter** | **Terraform-Automated VPC (`vpc-ge-user-portal`), Subnets, Proxy-Only Subnet, and Regional Internal HTTPS Application Load Balancer (`INTERNAL_MANAGED`)** with a private RFC 1918 VIP. |
-| **3. TLS Termination via Secret Manager** | **Regional Compute SSL Certificate (`google_compute_region_ssl_certificate.user_portal_ssl_cert`)** provisioned automatically by Terraform from the combined PEM certificate + private key stored in a single **GCP Secret Manager** secret (`ge-ssl-certificate`). |
+| **3. TLS Termination (`SSL_CERTIFICATE_ID`)** | **Regional Compute SSL Certificate (`SSL_CERTIFICATE_ID`)** created via `gcloud compute ssl-certificates create` and attached automatically by Terraform to `google_compute_region_target_https_proxy.user_portal_https_proxy` (`:443`). |
 | **4. User Authentication** | **In-App Google Cloud Identity / Microsoft 365 SAML SSO** (`/api/v1/auth/google/login` with `login_hint` email redirect to Google OAuth 2.0 + PKCE and HMAC-SHA256 session tokens), with Client ID & Secret sourced from a single **GCP Secret Manager** JSON secret (`ge-oauth-credentials`). |
 | **5. Database (`geapphub_user`)** | **Cloud SQL for PostgreSQL 16 (`geapphub-user-pg`)** configured with **Regional High Availability (`REGIONAL` 2-zone HA)**, `db-custom-2-8192` (2 vCPU, 8 GiB RAM), Point-in-Time Recovery (PITR), and **Private IP only** accessed via Cloud Run **Direct VPC Egress**. |
 | **6. Catalog & Group Sync** | **Cloud Run v2 Job (`ge-user-portal-sync-job`)** triggered every **15 minutes** by **Cloud Scheduler** (`*/15 * * * *`), executing `python -m app.sync_job` to sync Discovery Engine applications and Cloud Identity group memberships into `geapphub_user`. |
 | **7. Access & AGY License Requests** | Persisted in the **`access_requests` PostgreSQL table** (`AccessRequestRecord`) inside `geapphub_user` for Admin Console fulfillment and auditability. |
 | **8. Cloud Run Sizing & Scaling** | **Warm Production Profile**: `min_instance_count = 1` (zero cold start), `max_instance_count = 10`, `2 vCPU`, `1 GiB RAM`, `max_instance_request_concurrency = 80`. |
-| **9. IAM & Secret Management** | Two dedicated least-privilege service accounts (**`sa-user-portal-web`** and **`sa-user-portal-sync`**) with OAuth (`ge-oauth-credentials`), SSL (`ge-ssl-certificate`), Session, and DB secrets managed in **GCP Secret Manager**. |
-| **10. CI/CD & IaC Pipeline** | **Cloud Build Pipeline (`user-portal/cloudbuild.yaml`)** validates secrets in **Cloud Secret Manager**, builds & pushes container images directly to **Google Artifact Registry (`ge-user-portal-repo`)**, and applies the **Terraform Stack (`user-portal/deploy/terraform/`)**. |
+| **9. IAM & Secret Management** | Two dedicated least-privilege service accounts (**`sa-user-portal-web`** and **`sa-user-portal-sync`**) with OAuth (`ge-oauth-credentials`), Session, and DB secrets managed in **GCP Secret Manager**. |
+| **10. CI/CD & IaC Pipeline** | **Cloud Build Pipeline (`user-portal/cloudbuild.yaml`)** validates `ge-oauth-credentials` in **Cloud Secret Manager**, builds & pushes container images directly to **Google Artifact Registry (`ge-user-portal-repo`)**, and applies the **Terraform Stack (`user-portal/deploy/terraform/`)** with `SSL_CERTIFICATE_ID`. |
 
 ---
 
@@ -35,7 +35,7 @@ flowchart TB
 
     subgraph VPC["Enterprise VPC (Private RFC 1918)"]
       DNS["Private DNS"]
-      ILB["Internal HTTPS Application Load Balancer<br/>(INTERNAL_MANAGED + Secret Manager SSL Cert)"]
+      ILB["Internal HTTPS Application Load Balancer<br/>(INTERNAL_MANAGED + SSL_CERTIFICATE_ID)"]
       NEG["Serverless NEG"]
       EgressSubnet["Direct VPC Egress Subnet"]
       PSA["Private Services Access (PSA)<br/>Cloud SQL Private IP"]
@@ -50,7 +50,7 @@ flowchart TB
 
     subgraph DataAndSecrets["Persistence & Cloud Secret Manager"]
       CloudSQL[("Cloud SQL PostgreSQL 16<br/>Instance: geapphub-user-pg<br/>DB: geapphub_user<br/>REGIONAL HA (2 Zones) + PITR")]
-      SecretMgr["GCP Secret Manager<br/>- ge-oauth-credentials (Client ID + Secret JSON)<br/>- ge-ssl-certificate (Cert + Key PEM)<br/>- ge-user-db-url<br/>- ge-user-session-secret"]
+      SecretMgr["GCP Secret Manager<br/>- ge-oauth-credentials (Client ID + Secret JSON)<br/>- ge-user-db-url<br/>- ge-user-session-secret"]
     end
 
     subgraph GoogleAPIs["Google Cloud & Workspace APIs"]
@@ -63,8 +63,7 @@ flowchart TB
   CloudBuild -->|"Push Image"| ArtifactReg
   ArtifactReg -->|"Deploy Image"| WebSvc
   ArtifactReg -->|"Deploy Image"| SyncJob
-  SecretMgr -.->|"Verify Secrets"| CloudBuild
-  SecretMgr -.->|"Provision Regional SSL Cert"| ILB
+  SecretMgr -.->|"Verify Secret"| CloudBuild
   UserBrowser -->|"1. Resolve Private VIP"| DNS
   UserBrowser -->|"2. HTTPS (443) over VPN"| ILB
   ILB --> NEG --> WebSvc
@@ -102,13 +101,12 @@ Defined in [`user-portal/backend/app/db_models.py`](../backend/app/db_models.py)
 
 ---
 
-## 5. Cloud Secret Manager Integration (2 User Secrets + 2 System Secrets)
+## 5. Cloud Secret Manager Integration (OAuth & DB Credentials)
 
-All sensitive authentication, TLS termination, and database credentials are stored in **GCP Secret Manager** and consumed natively by Cloud Build, Terraform, and Cloud Run:
+All sensitive authentication and database credentials are stored in **GCP Secret Manager** and consumed natively by Cloud Build, Terraform, and Cloud Run:
 
 | Secret Manager Secret ID | Consumed By | Purpose |
 | :--- | :--- | :--- |
 | `ge-oauth-credentials` | `ge-user-portal-web` (`GOOGLE_OAUTH_CREDENTIALS`), `cloudbuild.yaml` | Single JSON secret storing both Google OAuth 2.0 Web Application `client_id` and `client_secret` (supports standard `client_secret.json` or `{"client_id":"...","client_secret":"..."}`). |
-| `ge-ssl-certificate` | Terraform (`google_compute_region_ssl_certificate`), `cloudbuild.yaml` | Single secret storing both the PEM-encoded TLS certificate (`portal.crt`) and private key (`portal.key`) attached to the Regional Internal HTTPS Application Load Balancer. |
 | `ge-user-session-secret` | `ge-user-portal-web` (`SESSION_SECRET`) | 256-bit cryptographic secret used to sign and verify HMAC-SHA256 OAuth state tokens and user session tokens. |
 | `ge-user-db-url` | `ge-user-portal-web`, `ge-user-portal-sync-job` (`DATABASE_URL`) | SQLAlchemy `postgresql+psycopg://` connection string targeting the `geapphub_user` database over Cloud SQL Private IP. |

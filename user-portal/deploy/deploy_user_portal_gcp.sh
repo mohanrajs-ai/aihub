@@ -6,11 +6,9 @@
 #
 # Pipeline Stages:
 #   Stage 1: Bootstrap Google Artifact Registry & Cloud Build IAM permissions
-#   Stage 2: Bootstrap & verify the 2 Cloud Secret Manager secrets:
-#            - ge-oauth-credentials (OAuth 2.0 Client ID + Client Secret JSON)
-#            - ge-ssl-certificate   (SSL Certificate + Private Key combined PEM)
+#   Stage 2: Bootstrap & verify OAuth credentials secret (ge-oauth-credentials) in Cloud Secret Manager
 #   Stage 3: Build & push container image to Google Artifact Registry via Cloud Build
-#   Stage 4: Provision GCP infrastructure via Terraform (reading SSL & OAuth from Secret Manager)
+#   Stage 4: Provision GCP infrastructure via Terraform (using SSL_CERTIFICATE_ID & OAuth Secret)
 # ==============================================================================
 set -euo pipefail
 
@@ -32,9 +30,9 @@ IMAGE_NAME="${IMAGE_NAME:-ge-user-portal}"
 IMAGE_TAG="${IMAGE_TAG:-latest}"
 INTERNAL_DOMAIN_NAME="${INTERNAL_DOMAIN_NAME:-aihub.internal.corp}"
 
-# 2 Secret Manager Secret IDs (Single Source of Truth for OAuth & SSL)
+# OAuth Secret Manager ID & Regional Compute SSL Certificate ID
 OAUTH_SECRET="${OAUTH_SECRET:-ge-oauth-credentials}"
-SSL_SECRET="${SSL_SECRET:-ge-ssl-certificate}"
+SSL_CERTIFICATE_ID="${SSL_CERTIFICATE_ID:-}"
 
 IMAGE_URI="${REGION}-docker.pkg.dev/${PROJECT_ID}/${AR_REPO}/${IMAGE_NAME}:${IMAGE_TAG}"
 
@@ -46,7 +44,7 @@ echo " Region            : ${REGION}"
 echo " Artifact Registry : ${REGION}-docker.pkg.dev/${PROJECT_ID}/${AR_REPO}"
 echo " Container Image   : ${IMAGE_URI}"
 echo " OAuth Secret      : ${OAUTH_SECRET} (Client ID + Secret)"
-echo " SSL Secret        : ${SSL_SECRET} (Cert + Private Key)"
+echo " SSL Cert ID       : ${SSL_CERTIFICATE_ID:-<none (HTTP fallback)>}"
 echo "=================================================================="
 
 # ------------------------------------------------------------------------------
@@ -90,29 +88,17 @@ for SA_EMAIL in \
 done
 
 # ------------------------------------------------------------------------------
-# Stage 2: Ensure the 2 Secrets (OAuth + SSL) Exist in Cloud Secret Manager
+# Stage 2: Ensure OAuth Secret ('ge-oauth-credentials') Exists in Cloud Secret Manager
 # ------------------------------------------------------------------------------
-echo "[Stage 2/4] Configuring & verifying '${OAUTH_SECRET}' and '${SSL_SECRET}' in Cloud Secret Manager..."
+echo "[Stage 2/4] Configuring & verifying '${OAUTH_SECRET}' in Cloud Secret Manager..."
 
-ensure_secret_exists() {
-  local secret_id="$1"
-  if ! gcloud secrets describe "${secret_id}" --project="${PROJECT_ID}" --quiet >/dev/null 2>&1; then
-    gcloud secrets create "${secret_id}" \
-      --replication-policy="automatic" \
-      --project="${PROJECT_ID}" \
-      --quiet
-  fi
-}
+if ! gcloud secrets describe "${OAUTH_SECRET}" --project="${PROJECT_ID}" --quiet >/dev/null 2>&1; then
+  gcloud secrets create "${OAUTH_SECRET}" \
+    --replication-policy="automatic" \
+    --project="${PROJECT_ID}" \
+    --quiet
+fi
 
-has_secret_version() {
-  local secret_id="$1"
-  gcloud secrets versions access latest --secret="${secret_id}" --project="${PROJECT_ID}" >/dev/null 2>&1
-}
-
-ensure_secret_exists "${OAUTH_SECRET}"
-ensure_secret_exists "${SSL_SECRET}"
-
-# 1. Populate OAuth secret (ge-oauth-credentials) if JSON file or env vars provided
 if [[ -n "${OAUTH_JSON_FILE:-}" && -f "${OAUTH_JSON_FILE}" ]]; then
   gcloud secrets versions add "${OAUTH_SECRET}" \
     --data-file="${OAUTH_JSON_FILE}" --project="${PROJECT_ID}" --quiet
@@ -120,32 +106,9 @@ elif [[ -n "${GOOGLE_CLIENT_ID:-}" && -n "${GOOGLE_CLIENT_SECRET:-}" ]]; then
   printf '{"client_id":"%s","client_secret":"%s"}' "${GOOGLE_CLIENT_ID}" "${GOOGLE_CLIENT_SECRET}" | \
     gcloud secrets versions add "${OAUTH_SECRET}" \
       --data-file=- --project="${PROJECT_ID}" --quiet
-elif ! has_secret_version "${OAUTH_SECRET}"; then
+elif ! gcloud secrets versions access latest --secret="${OAUTH_SECRET}" --project="${PROJECT_ID}" >/dev/null 2>&1; then
   echo "ERROR: Secret '${OAUTH_SECRET}' has no version in Secret Manager. Upload your OAuth credentials JSON to '${OAUTH_SECRET}' first." >&2
   exit 1
-fi
-
-# 2. Populate SSL secret (ge-ssl-certificate) if bundle/cert+key files provided or auto-generate fallback
-if [[ -n "${SSL_BUNDLE_FILE:-}" && -f "${SSL_BUNDLE_FILE}" ]]; then
-  gcloud secrets versions add "${SSL_SECRET}" \
-    --data-file="${SSL_BUNDLE_FILE}" --project="${PROJECT_ID}" --quiet
-elif [[ -n "${SSL_CERT_FILE:-}" && -f "${SSL_CERT_FILE}" && -n "${SSL_KEY_FILE:-}" && -f "${SSL_KEY_FILE}" ]]; then
-  cat "${SSL_CERT_FILE}" <(echo) "${SSL_KEY_FILE}" | \
-    gcloud secrets versions add "${SSL_SECRET}" \
-      --data-file=- --project="${PROJECT_ID}" --quiet
-elif ! has_secret_version "${SSL_SECRET}"; then
-  echo "No SSL bundle found in Secret Manager ('${SSL_SECRET}'); generating internal TLS certificate + key bundle for ${INTERNAL_DOMAIN_NAME}..."
-  TMP_CERT_DIR="$(mktemp -d /tmp/user-portal-ssl.XXXXXX)"
-  trap 'rm -rf "${TMP_CERT_DIR}"' EXIT
-  openssl req -x509 -nodes -newkey rsa:2048 \
-    -days 365 \
-    -keyout "${TMP_CERT_DIR}/portal.key" \
-    -out "${TMP_CERT_DIR}/portal.crt" \
-    -subj "/CN=${INTERNAL_DOMAIN_NAME}/O=Gemini AI Hub" \
-    -addext "subjectAltName=DNS:${INTERNAL_DOMAIN_NAME}" >/dev/null 2>&1
-  cat "${TMP_CERT_DIR}/portal.crt" <(echo) "${TMP_CERT_DIR}/portal.key" > "${TMP_CERT_DIR}/portal-bundle.pem"
-  gcloud secrets versions add "${SSL_SECRET}" \
-    --data-file="${TMP_CERT_DIR}/portal-bundle.pem" --project="${PROJECT_ID}" --quiet
 fi
 
 # ------------------------------------------------------------------------------
@@ -154,12 +117,12 @@ fi
 echo "[Stage 3/4] Building and pushing container image to Google Artifact Registry (${IMAGE_URI})..."
 gcloud builds submit "${PORTAL_DIR}" \
   --config="${PORTAL_DIR}/cloudbuild.yaml" \
-  --substitutions="_REGION=${REGION},_AR_REPO=${AR_REPO},_IMAGE_NAME=${IMAGE_NAME},_TAG=${IMAGE_TAG},_OAUTH_SECRET=${OAUTH_SECRET},_SSL_SECRET=${SSL_SECRET},_INTERNAL_DOMAIN_NAME=${INTERNAL_DOMAIN_NAME},_DEPLOY_INFRA=false" \
+  --substitutions="_REGION=${REGION},_AR_REPO=${AR_REPO},_IMAGE_NAME=${IMAGE_NAME},_TAG=${IMAGE_TAG},_OAUTH_SECRET=${OAUTH_SECRET},_SSL_CERTIFICATE_ID=${SSL_CERTIFICATE_ID},_INTERNAL_DOMAIN_NAME=${INTERNAL_DOMAIN_NAME},_DEPLOY_INFRA=false" \
   --project="${PROJECT_ID}" \
   --quiet
 
 # ------------------------------------------------------------------------------
-# Stage 4: Provision Infrastructure via Terraform (SSL & OAuth from Secret Manager)
+# Stage 4: Provision Infrastructure via Terraform (SSL Certificate ID & OAuth Secret)
 # ------------------------------------------------------------------------------
 echo "[Stage 4/4] Provisioning GCP infrastructure via Terraform (user-portal/deploy/terraform/)..."
 terraform -chdir="${TF_DIR}" init
@@ -179,7 +142,7 @@ import_if_missing() {
       -var="ar_repo_id=${AR_REPO}" \
       -var="container_image=${IMAGE_URI}" \
       -var="oauth_secret_name=${OAUTH_SECRET}" \
-      -var="ssl_secret_name=${SSL_SECRET}" \
+      -var="ssl_certificate_id=${SSL_CERTIFICATE_ID}" \
       "${addr}" "${id}" >/dev/null 2>&1 || true
   fi
 }
@@ -190,8 +153,7 @@ import_if_missing "google_service_account.sync_sa" "projects/${PROJECT_ID}/servi
 for SEC_ID in \
   ge-user-db-url \
   ge-user-session-secret \
-  "${OAUTH_SECRET}" \
-  "${SSL_SECRET}"; do
+  "${OAUTH_SECRET}"; do
   import_if_missing "google_secret_manager_secret.secrets[\"${SEC_ID}\"]" "projects/${PROJECT_ID}/secrets/${SEC_ID}"
 done
 import_if_missing "google_cloud_run_v2_service.user_portal_web" "projects/${PROJECT_ID}/locations/${REGION}/services/ge-user-portal-web"
@@ -204,7 +166,7 @@ terraform -chdir="${TF_DIR}" apply -auto-approve \
   -var="ar_repo_id=${AR_REPO}" \
   -var="container_image=${IMAGE_URI}" \
   -var="oauth_secret_name=${OAUTH_SECRET}" \
-  -var="ssl_secret_name=${SSL_SECRET}" \
+  -var="ssl_certificate_id=${SSL_CERTIFICATE_ID}" \
   -var="internal_domain_name=${INTERNAL_DOMAIN_NAME}"
 
 echo "=================================================================="

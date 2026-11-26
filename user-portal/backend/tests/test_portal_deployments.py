@@ -115,7 +115,8 @@ def test_sync_job_and_gcp_deployment_manifests(
     assert "ge-user-portal-repo" in cloudbuild_user
     assert "availableSecrets" in cloudbuild_user
     assert "ge-oauth-credentials" in cloudbuild_user
-    assert "ge-ssl-certificate" in cloudbuild_user
+    assert "_SSL_CERTIFICATE_ID" in cloudbuild_user
+    assert "_SSL_SECRET" not in cloudbuild_user
 
     deploy_script = (
         PROJECT_ROOT / "deploy" / "deploy_user_portal_gcp.sh"
@@ -123,7 +124,8 @@ def test_sync_job_and_gcp_deployment_manifests(
     assert "GCS_SOURCE_BUCKET" not in deploy_script
     assert "artifactregistry.googleapis.com" in deploy_script
     assert "ge-oauth-credentials" in deploy_script
-    assert "ge-ssl-certificate" in deploy_script
+    assert "SSL_CERTIFICATE_ID" in deploy_script
+    assert "_SSL_SECRET" not in deploy_script
 
     tf_main = (
         PROJECT_ROOT / "deploy" / "terraform" / "main.tf"
@@ -135,7 +137,7 @@ def test_sync_job_and_gcp_deployment_manifests(
     assert "sa-user-portal-web" in tf_main
     assert "sa-user-portal-sync" in tf_main
     assert "google_artifact_registry_repository" in tf_main
-    assert "google_compute_region_ssl_certificate" in tf_main
+    assert "resolved_ssl_certificate_id" in tf_main
     assert "GOOGLE_OAUTH_CREDENTIALS" in tf_main
     assert "user_portal_source_bucket" not in tf_main
     assert "google_privateca_ca_pool" not in tf_main

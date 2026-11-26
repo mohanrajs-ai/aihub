@@ -8,9 +8,9 @@ output "internal_load_balancer_vip" {
   value       = google_compute_address.user_portal_internal_vip.address
 }
 
-output "ssl_certificate_self_link" {
-  description = "Regional Compute SSL Certificate provisioned from Cloud Secret Manager"
-  value       = google_compute_region_ssl_certificate.user_portal_ssl_cert.self_link
+output "ssl_certificate_id" {
+  description = "Regional Compute SSL Certificate attached to the Internal HTTPS Load Balancer"
+  value       = local.resolved_ssl_certificate_id
 }
 
 output "cloud_run_service_uri" {

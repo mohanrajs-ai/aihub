@@ -20,22 +20,10 @@ variable "container_image" {
   type        = string
 }
 
-variable "oauth_Secret_name" {
-  description = "Deprecated alias; use oauth_secret_name"
-  type        = string
-  default     = ""
-}
-
 variable "oauth_secret_name" {
   description = "Cloud Secret Manager secret ID storing both Google OAuth 2.0 Client ID and Client Secret (JSON)"
   type        = string
   default     = "ge-oauth-credentials"
-}
-
-variable "ssl_secret_name" {
-  description = "Cloud Secret Manager secret ID storing both the TLS SSL Certificate and Private Key (combined PEM or JSON)"
-  type        = string
-  default     = "ge-ssl-certificate"
 }
 
 variable "oauth_credentials_json" {
@@ -45,10 +33,9 @@ variable "oauth_credentials_json" {
   default     = ""
 }
 
-variable "ssl_bundle_pem" {
-  description = "Optional combined PEM (certificate + private key) or JSON to seed into ge-ssl-certificate"
+variable "ssl_certificate_id" {
+  description = "Regional Compute SSL Certificate ID or name (e.g. projects/<PROJECT_ID>/regions/<REGION>/sslCertificates/<CERT_NAME> or <CERT_NAME>)"
   type        = string
-  sensitive   = true
   default     = ""
 }
 
