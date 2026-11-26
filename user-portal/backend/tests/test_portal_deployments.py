@@ -114,6 +114,7 @@ def test_sync_job_and_gcp_deployment_manifests(
     assert "Dockerfile" in cloudbuild_user
     assert "ge-user-portal-source" in cloudbuild_user
     assert "gcloud artifacts generic download" in cloudbuild_user
+    assert "'${SOURCE_PACKAGE}'" not in cloudbuild_user
     assert "ge-user-portal-repo" in cloudbuild_user
     assert "availableSecrets" in cloudbuild_user
     assert "ge-oauth-credentials" in cloudbuild_user

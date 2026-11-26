@@ -15,7 +15,7 @@ This document defines the production Google Cloud Platform (GCP) deployment arch
 | **7. Access & AGY License Requests** | Persisted in the **`access_requests` PostgreSQL table** (`AccessRequestRecord`) inside `geapphub_user` for Admin Console fulfillment and auditability. |
 | **8. Cloud Run Sizing & Scaling** | **Warm Production Profile**: `min_instance_count = 1` (zero cold start), `max_instance_count = 10`, `2 vCPU`, `1 GiB RAM`, `max_instance_request_concurrency = 80`. |
 | **9. IAM & Secret Management** | Two dedicated least-privilege service accounts (**`sa-user-portal-web`** and **`sa-user-portal-sync`**) with OAuth (`ge-oauth-credentials`), Session, and DB secrets managed in **GCP Secret Manager**. |
-| **10. CI/CD & IaC Pipeline** | **Cloud Build Pipeline (`user-portal/cloudbuild.yaml`)** validates `ge-oauth-credentials` in **Cloud Secret Manager**, builds & pushes container images directly to **Google Artifact Registry (`ge-user-portal-repo`)**, and applies the **Terraform Stack (`user-portal/deploy/terraform/`)** with `SSL_CERTIFICATE_ID`. |
+| **10. CI/CD & IaC Pipeline** | **Google Artifact Registry Generic Source Repo (`ge-user-portal-source`)** -> **Cloud Build (`--no-source`, `user-portal/cloudbuild.yaml`)** validates `ge-oauth-credentials` in **Cloud Secret Manager**, builds & pushes container images to **Google Artifact Registry Docker Repo (`ge-user-portal-repo`)**, and applies the **Terraform Stack (`user-portal/deploy/terraform/`)** with `SSL_CERTIFICATE_ID`. |
 
 ---
 

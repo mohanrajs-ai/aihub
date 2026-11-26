@@ -143,9 +143,9 @@ gcloud config set project "${GCP_PROJECT_ID}"
 ## 3. Option A: 1-Command End-to-End Pipeline (`deploy_user_portal_gcp.sh`)
 
 Run [`user-portal/deploy/deploy_user_portal_gcp.sh`](../deploy/deploy_user_portal_gcp.sh) from the repository root. It executes the 4-stage deployment pipeline:
-1. **Stage 1**: Enables APIs, creates the **Google Artifact Registry** repository (`ge-user-portal-repo`), and grants Cloud Build IAM permissions.
+1. **Stage 1**: Enables APIs, creates the **Google Artifact Registry** `GENERIC` source repository (`ge-user-portal-source`) and `DOCKER` image repository (`ge-user-portal-repo`), and grants Cloud Build IAM permissions.
 2. **Stage 2**: Ensures `ge-oauth-credentials` exists and has an active version in **Cloud Secret Manager**.
-3. **Stage 3**: Runs the **Cloud Build** pipeline ([`user-portal/cloudbuild.yaml`](../cloudbuild.yaml)), which verifies `ge-oauth-credentials` from Cloud Secret Manager (`availableSecrets`), builds `user-portal/Dockerfile`, and pushes the image directly to **Google Artifact Registry**.
+3. **Stage 3**: Packages `user-portal/` and uploads it to the **Google Artifact Registry** `GENERIC` repository (`gcloud artifacts generic upload`), then runs the **Cloud Build** pipeline ([`user-portal/cloudbuild.yaml`](../cloudbuild.yaml)) with `--no-source` (which downloads the source from Artifact Registry, verifies `ge-oauth-credentials` from Cloud Secret Manager, builds `user-portal/Dockerfile`, and pushes the image to the Artifact Registry `DOCKER` repository).
 4. **Stage 4**: Runs **Terraform** (`user-portal/deploy/terraform/`), attaching `${SSL_CERTIFICATE_ID}` to the Regional Internal HTTPS Load Balancer (`proxy-ge-user-portal-internal-https`) and mounting `ge-oauth-credentials` (`GOOGLE_OAUTH_CREDENTIALS`) from Cloud Secret Manager into Cloud Run (`ge-user-portal-web`).
 
 ```bash
@@ -241,7 +241,7 @@ terraform apply \
 | Layer | Terraform Resources Created Automatically |
 | :--- | :--- |
 | **GCP APIs** | `google_project_service.enabled_apis` (Run, Build, Artifact Registry, SQL Admin, Compute, Service Networking, Secret Manager, Scheduler, Discovery Engine, Cloud Identity) |
-| **Google Artifact Registry** | `google_artifact_registry_repository.user_portal_repo` (`DOCKER` repository in `${GCP_REGION}`) |
+| **Google Artifact Registry** | `google_artifact_registry_repository.user_portal_source_repo` (`GENERIC` source repository) + `google_artifact_registry_repository.user_portal_repo` (`DOCKER` image repository in `${GCP_REGION}`) |
 | **VPC, Subnets & PSA** | `google_compute_network.user_portal_vpc`, `google_compute_subnetwork.user_portal_subnet` (Direct VPC Egress + ILB), `google_compute_subnetwork.regional_proxy_subnet` (`REGIONAL_MANAGED_PROXY`), `google_service_networking_connection.private_vpc_connection` |
 | **IAM & Service Accounts** | `google_service_account.web_sa` (`sa-user-portal-web`), `google_service_account.sync_sa` (`sa-user-portal-sync`), and least-privilege `google_project_iam_member` bindings |
 | **Cloud SQL HA (`geapphub_user`)** | `google_sql_database_instance.user_pg` (PostgreSQL 16, `REGIONAL` 2-zone HA, Private IP only, PITR), `google_sql_database.geapphub_user_db`, `google_sql_user.appuser` |
