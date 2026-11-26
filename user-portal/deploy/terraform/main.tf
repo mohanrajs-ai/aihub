@@ -75,22 +75,18 @@ resource "google_service_networking_connection" "private_vpc_connection" {
 }
 
 # ============================================================================
-# 2. Google Artifact Registry (Source GENERIC + Image DOCKER) & Service Accounts
+# 2. Least-Privilege Service Accounts (Artifact Registry Repos Created in Step 1)
 # ============================================================================
 
-resource "google_artifact_registry_repository" "user_portal_source_repo" {
+data "google_artifact_registry_repository" "user_portal_source_repo" {
   location      = var.region
   repository_id = var.ar_source_repo_id
-  description   = "Google Artifact Registry Generic repository for Gemini AI Hub User Portal source code"
-  format        = "GENERIC"
   depends_on    = [google_project_service.enabled_apis]
 }
 
-resource "google_artifact_registry_repository" "user_portal_repo" {
+data "google_artifact_registry_repository" "user_portal_repo" {
   location      = var.region
   repository_id = var.ar_repo_id
-  description   = "Google Artifact Registry Docker repository for Gemini AI Hub User Portal"
-  format        = "DOCKER"
   depends_on    = [google_project_service.enabled_apis]
 }
 
@@ -172,14 +168,13 @@ resource "google_sql_user" "appuser" {
 }
 
 # ============================================================================
-# 4. GCP Secret Manager (OAuth Credentials JSON Secret + DB & Session Secrets)
+# 4. GCP Secret Manager (DB & Session Secrets; OAuth Secret Pre-Created in Step 3)
 # ============================================================================
 
 resource "google_secret_manager_secret" "secrets" {
   for_each = toset([
     "ge-user-db-url",
     "ge-user-session-secret",
-    var.oauth_secret_name,
   ])
   secret_id  = each.value
   depends_on = [google_project_service.enabled_apis]
@@ -199,12 +194,6 @@ resource "google_secret_manager_secret_version" "session_secret_version" {
   secret_data = local.generated_session_hmac
 }
 
-resource "google_secret_manager_secret_version" "oauth_credentials_seed" {
-  count       = var.oauth_credentials_json != "" ? 1 : 0
-  secret      = google_secret_manager_secret.secrets[var.oauth_secret_name].id
-  secret_data = var.oauth_credentials_json
-}
-
 # ============================================================================
 # 5. Cloud Run v2 Web Service (Warm Production: min=1, max=10, 2 vCPU / 1 GiB)
 # ============================================================================
@@ -217,7 +206,6 @@ resource "google_cloud_run_v2_service" "user_portal_web" {
     google_project_iam_member.web_sa_roles,
     google_secret_manager_secret_version.db_url_version,
     google_secret_manager_secret_version.session_secret_version,
-    google_secret_manager_secret_version.oauth_credentials_seed,
   ]
 
   template {
@@ -277,7 +265,7 @@ resource "google_cloud_run_v2_service" "user_portal_web" {
         name = "GOOGLE_OAUTH_CREDENTIALS"
         value_source {
           secret_key_ref {
-            secret  = google_secret_manager_secret.secrets[var.oauth_secret_name].secret_id
+            secret  = var.oauth_secret_name
             version = "latest"
           }
         }

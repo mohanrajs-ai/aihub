@@ -195,14 +195,11 @@ import_if_missing() {
   fi
 }
 
-import_if_missing "google_artifact_registry_repository.user_portal_source_repo" "projects/${PROJECT_ID}/locations/${REGION}/repositories/${AR_SOURCE_REPO}"
-import_if_missing "google_artifact_registry_repository.user_portal_repo" "projects/${PROJECT_ID}/locations/${REGION}/repositories/${AR_REPO}"
 import_if_missing "google_service_account.web_sa" "projects/${PROJECT_ID}/serviceAccounts/sa-user-portal-web@${PROJECT_ID}.iam.gserviceaccount.com"
 import_if_missing "google_service_account.sync_sa" "projects/${PROJECT_ID}/serviceAccounts/sa-user-portal-sync@${PROJECT_ID}.iam.gserviceaccount.com"
 for SEC_ID in \
   ge-user-db-url \
-  ge-user-session-secret \
-  "${OAUTH_SECRET}"; do
+  ge-user-session-secret; do
   import_if_missing "google_secret_manager_secret.secrets[\"${SEC_ID}\"]" "projects/${PROJECT_ID}/secrets/${SEC_ID}"
 done
 import_if_missing "google_cloud_run_v2_service.user_portal_web" "projects/${PROJECT_ID}/locations/${REGION}/services/ge-user-portal-web"
