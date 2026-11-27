@@ -47,7 +47,7 @@ resource "google_project_service" "enabled_apis" {
 }
 
 # ============================================================================
-# 1. Existing VPC / Shared VPC Network & Subnet (via Variables) + Proxy & PSA
+# 1. Existing VPC / Shared VPC Network & Subnet (via Variables)
 # ============================================================================
 
 data "google_compute_network" "user_portal_vpc" {
@@ -61,34 +61,6 @@ data "google_compute_subnetwork" "user_portal_subnet" {
   region     = var.region
   project    = local.extracted_host_project_id
   depends_on = [google_project_service.enabled_apis]
-}
-
-resource "google_compute_subnetwork" "regional_proxy_subnet" {
-  count         = var.create_proxy_only_subnet ? 1 : 0
-  name          = "subnet-ge-user-portal-proxy-only"
-  project       = local.extracted_host_project_id
-  ip_cidr_range = var.proxy_only_subnet_cidr
-  region        = var.region
-  network       = data.google_compute_network.user_portal_vpc.id
-  purpose       = "REGIONAL_MANAGED_PROXY"
-  role          = "ACTIVE"
-}
-
-resource "google_compute_global_address" "private_ip_alloc" {
-  count         = var.create_psa_peering ? 1 : 0
-  name          = "psa-ge-user-portal-sql"
-  project       = local.extracted_host_project_id
-  purpose       = "VPC_PEERING"
-  address_type  = "INTERNAL"
-  prefix_length = 16
-  network       = data.google_compute_network.user_portal_vpc.id
-}
-
-resource "google_service_networking_connection" "private_vpc_connection" {
-  count                   = var.create_psa_peering ? 1 : 0
-  network                 = data.google_compute_network.user_portal_vpc.id
-  service                 = "servicenetworking.googleapis.com"
-  reserved_peering_ranges = [google_compute_global_address.private_ip_alloc[0].name]
 }
 
 # ============================================================================
@@ -151,7 +123,7 @@ resource "google_sql_database_instance" "user_pg" {
   database_version    = "POSTGRES_16"
   region              = var.region
   deletion_protection = true
-  depends_on          = [google_service_networking_connection.private_vpc_connection]
+  depends_on          = [google_project_service.enabled_apis]
 
   settings {
     tier              = "db-custom-2-8192"
@@ -423,7 +395,6 @@ resource "google_compute_forwarding_rule" "user_portal_http_fw_rule" {
   network               = data.google_compute_network.user_portal_vpc.id
   subnetwork            = data.google_compute_subnetwork.user_portal_subnet.id
   ip_address            = google_compute_address.user_portal_internal_vip.id
-  depends_on            = [google_compute_subnetwork.regional_proxy_subnet]
 }
 
 resource "google_compute_region_target_https_proxy" "user_portal_https_proxy" {
@@ -445,5 +416,4 @@ resource "google_compute_forwarding_rule" "user_portal_https_fw_rule" {
   network               = data.google_compute_network.user_portal_vpc.id
   subnetwork            = data.google_compute_subnetwork.user_portal_subnet.id
   ip_address            = google_compute_address.user_portal_internal_vip.id
-  depends_on            = [google_compute_subnetwork.regional_proxy_subnet]
 }

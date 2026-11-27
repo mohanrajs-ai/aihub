@@ -92,21 +92,3 @@ variable "vpc_host_project_id" {
   type        = string
   default     = ""
 }
-
-variable "create_proxy_only_subnet" {
-  description = "Whether Terraform should create the REGIONAL_MANAGED_PROXY subnet (set to false if already created in the Shared VPC Host Project)"
-  type        = bool
-  default     = true
-}
-
-variable "create_psa_peering" {
-  description = "Whether Terraform should create Private Services Access VPC peering for Cloud SQL (set to false if already configured in the Shared VPC Host Project)"
-  type        = bool
-  default     = true
-}
-
-variable "proxy_only_subnet_cidr" {
-  description = "CIDR range for the Regional Managed Proxy-Only subnet required by Internal ALB"
-  type        = string
-  default     = "10.128.11.0/24"
-}
