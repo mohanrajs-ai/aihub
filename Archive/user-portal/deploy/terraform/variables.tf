@@ -64,13 +64,45 @@ variable "cloud_run_ingress" {
 }
 
 variable "vpc_name" {
-  description = "Existing VPC network name (or self-link/ID) for Cloud Run Direct VPC Egress, Cloud SQL Private IP, and Internal ALB"
+  description = "Existing VPC network ID or name (for Shared VPC: projects/<HOST_PROJECT_ID>/global/networks/<VPC_NAME>)"
   type        = string
+  default     = ""
+}
+
+variable "vpc_id" {
+  description = "Full Shared VPC self-link or resource ID (projects/<HOST_PROJECT_ID>/global/networks/<VPC_NAME>)"
+  type        = string
+  default     = ""
 }
 
 variable "subnet_name" {
-  description = "Existing regional subnetwork name (or self-link/ID) in var.region for Cloud Run Direct VPC Egress and Internal ALB VIP"
+  description = "Existing regional subnetwork ID or name (for Shared VPC: projects/<HOST_PROJECT_ID>/regions/<REGION>/subnetworks/<SUBNET_NAME>)"
   type        = string
+  default     = ""
+}
+
+variable "subnet_id" {
+  description = "Full Shared VPC subnetwork self-link or resource ID (projects/<HOST_PROJECT_ID>/regions/<REGION>/subnetworks/<SUBNET_NAME>)"
+  type        = string
+  default     = ""
+}
+
+variable "vpc_host_project_id" {
+  description = "Optional Shared VPC Host Project ID (automatically extracted when vpc_id/vpc_name is in projects/<HOST_PROJECT_ID>/global/networks/<VPC_NAME> format)"
+  type        = string
+  default     = ""
+}
+
+variable "create_proxy_only_subnet" {
+  description = "Whether Terraform should create the REGIONAL_MANAGED_PROXY subnet (set to false if already created in the Shared VPC Host Project)"
+  type        = bool
+  default     = true
+}
+
+variable "create_psa_peering" {
+  description = "Whether Terraform should create Private Services Access VPC peering for Cloud SQL (set to false if already configured in the Shared VPC Host Project)"
+  type        = bool
+  default     = true
 }
 
 variable "proxy_only_subnet_cidr" {

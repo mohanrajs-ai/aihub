@@ -17,6 +17,19 @@ locals {
   ])
   generated_db_password  = substr(sha256("${var.project_id}-${var.region}-geapphub-user-db"), 0, 24)
   generated_session_hmac = sha256("${var.project_id}-${var.region}-geapphub-session-secret")
+  raw_vpc_input          = var.vpc_id != "" ? var.vpc_id : var.vpc_name
+  raw_subnet_input       = var.subnet_id != "" ? var.subnet_id : var.subnet_name
+  extracted_host_project_id = (
+    var.vpc_host_project_id != "" ? var.vpc_host_project_id : (
+      can(regex("^projects/([^/]+)/", local.raw_vpc_input))
+      ? regex("^projects/([^/]+)/", local.raw_vpc_input)[0]
+      : (
+        can(regex("/projects/([^/]+)/", local.raw_vpc_input))
+        ? regex("/projects/([^/]+)/", local.raw_vpc_input)[0]
+        : var.project_id
+      )
+    )
+  )
   resolved_ssl_certificate_id = (
     var.ssl_certificate_id == "" ? "" : (
       can(regex("^projects/", var.ssl_certificate_id)) || can(regex("^https://", var.ssl_certificate_id))
@@ -34,24 +47,26 @@ resource "google_project_service" "enabled_apis" {
 }
 
 # ============================================================================
-# 1. Existing VPC Network & Subnet (via Variables) + Proxy-Only Subnet & PSA
+# 1. Existing VPC / Shared VPC Network & Subnet (via Variables) + Proxy & PSA
 # ============================================================================
 
 data "google_compute_network" "user_portal_vpc" {
-  name       = basename(var.vpc_name)
-  project    = var.project_id
+  name       = basename(local.raw_vpc_input)
+  project    = local.extracted_host_project_id
   depends_on = [google_project_service.enabled_apis]
 }
 
 data "google_compute_subnetwork" "user_portal_subnet" {
-  name       = basename(var.subnet_name)
+  name       = basename(local.raw_subnet_input)
   region     = var.region
-  project    = var.project_id
+  project    = local.extracted_host_project_id
   depends_on = [google_project_service.enabled_apis]
 }
 
 resource "google_compute_subnetwork" "regional_proxy_subnet" {
+  count         = var.create_proxy_only_subnet ? 1 : 0
   name          = "subnet-ge-user-portal-proxy-only"
+  project       = local.extracted_host_project_id
   ip_cidr_range = var.proxy_only_subnet_cidr
   region        = var.region
   network       = data.google_compute_network.user_portal_vpc.id
@@ -60,7 +75,9 @@ resource "google_compute_subnetwork" "regional_proxy_subnet" {
 }
 
 resource "google_compute_global_address" "private_ip_alloc" {
+  count         = var.create_psa_peering ? 1 : 0
   name          = "psa-ge-user-portal-sql"
+  project       = local.extracted_host_project_id
   purpose       = "VPC_PEERING"
   address_type  = "INTERNAL"
   prefix_length = 16
@@ -68,9 +85,10 @@ resource "google_compute_global_address" "private_ip_alloc" {
 }
 
 resource "google_service_networking_connection" "private_vpc_connection" {
+  count                   = var.create_psa_peering ? 1 : 0
   network                 = data.google_compute_network.user_portal_vpc.id
   service                 = "servicenetworking.googleapis.com"
-  reserved_peering_ranges = [google_compute_global_address.private_ip_alloc.name]
+  reserved_peering_ranges = [google_compute_global_address.private_ip_alloc[0].name]
 }
 
 # ============================================================================
@@ -122,13 +140,6 @@ resource "google_project_iam_member" "sync_sa_roles" {
   project = var.project_id
   role    = each.value
   member  = "serviceAccount:${google_service_account.sync_sa.email}"
-}
-
-resource "google_organization_iam_member" "cloud_identity_groups_viewer" {
-  for_each = var.org_id != "" ? toset(["web", "sync"]) : toset([])
-  org_id   = var.org_id
-  role     = "roles/cloudidentity.groupsViewer"
-  member   = "serviceAccount:${each.key == "web" ? google_service_account.web_sa.email : google_service_account.sync_sa.email}"
 }
 
 # ============================================================================
