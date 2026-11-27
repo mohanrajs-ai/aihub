@@ -58,9 +58,15 @@ variable "internal_domain_name" {
 }
 
 variable "cloud_run_ingress" {
-  description = "Cloud Run ingress setting (INGRESS_TRAFFIC_ALL allows direct .run.app access; INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER restricts to VPC/ILB)"
+  description = "Cloud Run ingress setting (INGRESS_TRAFFIC_INTERNAL_ONLY satisfies constraints/run.allowedIngress org policy and allows Internal ALB + VPC traffic)"
   type        = string
-  default     = "INGRESS_TRAFFIC_ALL"
+  default     = "INGRESS_TRAFFIC_INTERNAL_ONLY"
+}
+
+variable "cloud_run_vpc_egress" {
+  description = "Cloud Run Direct VPC Egress setting (ALL_TRAFFIC routes all egress via VPC with no direct internet egress, satisfying constraints/run.allowedVPCEgress)"
+  type        = string
+  default     = "ALL_TRAFFIC"
 }
 
 variable "vpc_name" {

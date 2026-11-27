@@ -207,7 +207,7 @@ resource "google_cloud_run_v2_service" "user_portal_web" {
     }
 
     vpc_access {
-      egress = "PRIVATE_RANGES_ONLY"
+      egress = var.cloud_run_vpc_egress
       network_interfaces {
         network    = data.google_compute_network.user_portal_vpc.id
         subnetwork = data.google_compute_subnetwork.user_portal_subnet.id
@@ -290,7 +290,7 @@ resource "google_cloud_run_v2_job" "user_portal_sync_job" {
       timeout         = "600s"
 
       vpc_access {
-        egress = "PRIVATE_RANGES_ONLY"
+        egress = var.cloud_run_vpc_egress
         network_interfaces {
           network    = data.google_compute_network.user_portal_vpc.id
           subnetwork = data.google_compute_subnetwork.user_portal_subnet.id
