@@ -1,0 +1,51 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: ge-user-portal-web
+  annotations:
+    run.googleapis.com/ingress: internal-and-cloud-load-balancing
+    run.googleapis.com/launch-stage: GA
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/minScale: "1"
+        autoscaling.knative.dev/maxScale: "10"
+        run.googleapis.com/cpu-throttling: "false"
+        run.googleapis.com/network-interfaces: '[{"network":"vpc-ge-user-portal","subnetwork":"subnet-ge-user-portal"}]'
+        run.googleapis.com/vpc-access-egress: private-ranges-only
+    spec:
+      serviceAccountName: sa-user-portal-web@${GCP_PROJECT_ID}.iam.gserviceaccount.com
+      containerConcurrency: 80
+      timeoutSeconds: 300
+      containers:
+        - image: ge-user-portal
+          ports:
+            - name: http1
+              containerPort: 8080
+          resources:
+            limits:
+              cpu: "2"
+              memory: "1Gi"
+          env:
+            - name: GCP_PROJECT_ID
+              value: "${GCP_PROJECT_ID}"
+            - name: SYNC_ENABLED
+              value: "false"
+            - name: SYNC_ON_STARTUP
+              value: "false"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: ge-user-db-url
+                  key: latest
+            - name: GOOGLE_OAUTH_CREDENTIALS
+              valueFrom:
+                secretKeyRef:
+                  name: "${OAUTH_SECRET}"
+                  key: latest
+            - name: SESSION_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: ge-user-session-secret
+                  key: latest

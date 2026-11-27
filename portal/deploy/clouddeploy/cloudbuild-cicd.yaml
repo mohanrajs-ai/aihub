@@ -1,0 +1,131 @@
+# ==============================================================================
+# GCP-Native End-to-End CI/CD Pipeline (GAR + Cloud Build + Cloud Deploy)
+# - Stage 1 (GAR Source): Downloads source package from Google Artifact Registry (GENERIC)
+# - Stage 2 (Secret Check): Validates OAuth secret in Cloud Secret Manager
+# - Stage 3 (Cloud Build CI): Builds multi-stage Docker container image
+# - Stage 4 (GAR Docker): Pushes versioned image to Google Artifact Registry (DOCKER)
+# - Stage 5 (Cloud Deploy CD): Renders Skaffold/Cloud Run manifest & creates a
+#   Cloud Deploy (clouddeploy.googleapis.com) release to roll out ge-user-portal-web
+# ==============================================================================
+
+substitutions:
+  _REGION: us-central1
+  _AR_SOURCE_REPO: ge-user-portal-source
+  _SOURCE_PACKAGE: user-portal-source
+  _SOURCE_VERSION: v1
+  _AR_REPO: ge-user-portal-repo
+  _IMAGE_NAME: ge-user-portal
+  _TAG: latest
+  _OAUTH_SECRET: ge-oauth-credentials
+  _PIPELINE_NAME: ge-user-portal-pipeline
+
+steps:
+  # Stage 1: Fetch User Portal source archive from Google Artifact Registry (GENERIC)
+  - id: fetch-source-from-gar
+    name: gcr.io/cloud-builders/gcloud
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        if [[ -f "/workspace/Dockerfile" ]]; then
+          echo "[Stage 1] Source already present in /workspace; skipping GAR source download."
+          exit 0
+        fi
+        echo "[Stage 1] Downloading '${_SOURCE_PACKAGE}:${_SOURCE_VERSION}' from GAR '${_AR_SOURCE_REPO}'..."
+        gcloud artifacts generic download \
+          --location="${_REGION}" \
+          --project="${PROJECT_ID}" \
+          --repository="${_AR_SOURCE_REPO}" \
+          --package="${_SOURCE_PACKAGE}" \
+          --version="${_SOURCE_VERSION}" \
+          --destination=/workspace/
+        ARCHIVE_PATH="$(find /workspace -maxdepth 2 -name '*.tgz' -o -name '*.tar.gz' | head -n 1)"
+        tar -xzf "$${ARCHIVE_PATH}" -C /workspace
+        rm -f "$${ARCHIVE_PATH}"
+
+  # Stage 2: Verify OAuth JSON secret in Google Cloud Secret Manager
+  - id: verify-oauth-secret
+    name: gcr.io/cloud-builders/gcloud
+    entrypoint: bash
+    waitFor:
+      - fetch-source-from-gar
+    secretEnv:
+      - GOOGLE_OAUTH_CREDENTIALS
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        echo "[Stage 2] Verifying secret '${_OAUTH_SECRET}' in Cloud Secret Manager..."
+        if [[ -z "$${GOOGLE_OAUTH_CREDENTIALS:-}" ]]; then
+          echo "ERROR: Secret '${_OAUTH_SECRET}' is empty in Cloud Secret Manager." >&2
+          exit 1
+        fi
+        echo "Secret '${_OAUTH_SECRET}' verified."
+
+  # Stage 3: Build multi-stage User Portal container image
+  - id: build-container-image
+    name: gcr.io/cloud-builders/docker
+    entrypoint: bash
+    waitFor:
+      - verify-oauth-secret
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        IMAGE_URI="${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_IMAGE_NAME}:${_TAG}"
+        LATEST_URI="${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_IMAGE_NAME}:latest"
+        echo "[Stage 3] Building container image: $${IMAGE_URI}"
+        docker build -f Dockerfile -t "$${IMAGE_URI}" -t "$${LATEST_URI}" .
+
+  # Stage 4: Push container image to Google Artifact Registry (DOCKER)
+  - id: push-image-to-gar
+    name: gcr.io/cloud-builders/docker
+    entrypoint: bash
+    waitFor:
+      - build-container-image
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        IMAGE_URI="${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_IMAGE_NAME}:${_TAG}"
+        LATEST_URI="${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_IMAGE_NAME}:latest"
+        echo "[Stage 4] Pushing container image to GAR: $${IMAGE_URI}"
+        docker push "$${IMAGE_URI}"
+        if [[ "$${IMAGE_URI}" != "$${LATEST_URI}" ]]; then
+          docker push "$${LATEST_URI}"
+        fi
+
+  # Stage 5: Trigger Google Cloud Deploy (clouddeploy.googleapis.com) Release & Rollout
+  - id: create-cloud-deploy-release
+    name: gcr.io/cloud-builders/gcloud
+    entrypoint: bash
+    waitFor:
+      - push-image-to-gar
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        IMAGE_URI="${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_IMAGE_NAME}:${_TAG}"
+        RELEASE_NAME="rel-$(date -u +%Y%m%d-%H%M%S)"
+        echo "[Stage 5] Rendering Cloud Run manifest and creating Cloud Deploy release '$${RELEASE_NAME}'..."
+
+        sed -e "s|\$${GCP_PROJECT_ID}|${PROJECT_ID}|g" \
+            -e "s|\$${OAUTH_SECRET}|${_OAUTH_SECRET}|g" \
+            deploy/clouddeploy/run-service.yaml > deploy/clouddeploy/run-service.rendered.yaml
+        mv deploy/clouddeploy/run-service.rendered.yaml deploy/clouddeploy/run-service.yaml
+
+        gcloud deploy releases create "$${RELEASE_NAME}" \
+          --delivery-pipeline="${_PIPELINE_NAME}" \
+          --region="${_REGION}" \
+          --project="${PROJECT_ID}" \
+          --source=deploy/clouddeploy \
+          --images="ge-user-portal=$${IMAGE_URI}"
+
+availableSecrets:
+  secretManager:
+    - versionName: projects/$PROJECT_ID/secrets/${_OAUTH_SECRET}/versions/latest
+      env: GOOGLE_OAUTH_CREDENTIALS
+
+options:
+  logging: CLOUD_LOGGING_ONLY

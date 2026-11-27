@@ -1,0 +1,14 @@
+apiVersion: skaffold/v4beta7
+kind: Config
+metadata:
+  name: ge-user-portal
+manifests:
+  rawYaml:
+    - run-service.yaml
+deploy:
+  cloudrun: {}
+profiles:
+  - name: prod
+    manifests:
+      rawYaml:
+        - run-service.yaml

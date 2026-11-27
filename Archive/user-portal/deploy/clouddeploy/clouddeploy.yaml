@@ -1,0 +1,33 @@
+# ==============================================================================
+# Google Cloud Deploy (clouddeploy.googleapis.com) Delivery Pipeline & Target
+# Rendered with envsubst or gcloud deploy apply for Gemini AI Hub — User Portal
+# ==============================================================================
+apiVersion: deploy.cloud.google.com/v1
+kind: DeliveryPipeline
+metadata:
+  name: ge-user-portal-pipeline
+  labels:
+    app: ge-user-portal
+    managed-by: cloud-deploy
+description: GCP-native Continuous Delivery pipeline for Gemini AI Hub User Portal (GAR -> Cloud Build -> Cloud Deploy -> Cloud Run)
+serialPipeline:
+  stages:
+    - targetId: prod-user-portal
+      profiles:
+        - prod
+---
+apiVersion: deploy.cloud.google.com/v1
+kind: Target
+metadata:
+  name: prod-user-portal
+  labels:
+    env: prod
+    app: ge-user-portal
+description: Production Cloud Run target for ge-user-portal-web
+run:
+  location: projects/${GCP_PROJECT_ID}/locations/${GCP_REGION}
+executionConfigs:
+  - usages:
+      - RENDER
+      - DEPLOY
+    serviceAccount: ${CLOUD_DEPLOY_SA}

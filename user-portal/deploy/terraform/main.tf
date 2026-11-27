@@ -34,28 +34,27 @@ resource "google_project_service" "enabled_apis" {
 }
 
 # ============================================================================
-# 1. Automated VPC Network, Subnets, Proxy-Only Subnet & Private Services Access
+# 1. Existing VPC Network & Subnet (via Variables) + Proxy-Only Subnet & PSA
 # ============================================================================
 
-resource "google_compute_network" "user_portal_vpc" {
-  name                    = "vpc-ge-user-portal"
-  auto_create_subnetworks = false
-  depends_on              = [google_project_service.enabled_apis]
+data "google_compute_network" "user_portal_vpc" {
+  name       = basename(var.vpc_name)
+  project    = var.project_id
+  depends_on = [google_project_service.enabled_apis]
 }
 
-resource "google_compute_subnetwork" "user_portal_subnet" {
-  name                     = "subnet-ge-user-portal"
-  ip_cidr_range            = var.subnet_cidr
-  region                   = var.region
-  network                  = google_compute_network.user_portal_vpc.id
-  private_ip_google_access = true
+data "google_compute_subnetwork" "user_portal_subnet" {
+  name       = basename(var.subnet_name)
+  region     = var.region
+  project    = var.project_id
+  depends_on = [google_project_service.enabled_apis]
 }
 
 resource "google_compute_subnetwork" "regional_proxy_subnet" {
   name          = "subnet-ge-user-portal-proxy-only"
   ip_cidr_range = var.proxy_only_subnet_cidr
   region        = var.region
-  network       = google_compute_network.user_portal_vpc.id
+  network       = data.google_compute_network.user_portal_vpc.id
   purpose       = "REGIONAL_MANAGED_PROXY"
   role          = "ACTIVE"
 }
@@ -65,11 +64,11 @@ resource "google_compute_global_address" "private_ip_alloc" {
   purpose       = "VPC_PEERING"
   address_type  = "INTERNAL"
   prefix_length = 16
-  network       = google_compute_network.user_portal_vpc.id
+  network       = data.google_compute_network.user_portal_vpc.id
 }
 
 resource "google_service_networking_connection" "private_vpc_connection" {
-  network                 = google_compute_network.user_portal_vpc.id
+  network                 = data.google_compute_network.user_portal_vpc.id
   service                 = "servicenetworking.googleapis.com"
   reserved_peering_ranges = [google_compute_global_address.private_ip_alloc.name]
 }
@@ -152,7 +151,7 @@ resource "google_sql_database_instance" "user_pg" {
 
     ip_configuration {
       ipv4_enabled    = false
-      private_network = google_compute_network.user_portal_vpc.id
+      private_network = data.google_compute_network.user_portal_vpc.id
     }
 
     backup_configuration {
@@ -227,8 +226,8 @@ resource "google_cloud_run_v2_service" "user_portal_web" {
     vpc_access {
       egress = "PRIVATE_RANGES_ONLY"
       network_interfaces {
-        network    = google_compute_network.user_portal_vpc.id
-        subnetwork = google_compute_subnetwork.user_portal_subnet.id
+        network    = data.google_compute_network.user_portal_vpc.id
+        subnetwork = data.google_compute_subnetwork.user_portal_subnet.id
       }
     }
 
@@ -390,7 +389,7 @@ resource "google_compute_region_url_map" "user_portal_url_map" {
 resource "google_compute_address" "user_portal_internal_vip" {
   name         = "vip-ge-user-portal-internal"
   region       = var.region
-  subnetwork   = google_compute_subnetwork.user_portal_subnet.id
+  subnetwork   = data.google_compute_subnetwork.user_portal_subnet.id
   address_type = "INTERNAL"
   purpose      = "GCE_ENDPOINT"
 }
@@ -410,8 +409,8 @@ resource "google_compute_forwarding_rule" "user_portal_http_fw_rule" {
   load_balancing_scheme = "INTERNAL_MANAGED"
   port_range            = "80"
   target                = google_compute_region_target_http_proxy.user_portal_http_proxy[0].id
-  network               = google_compute_network.user_portal_vpc.id
-  subnetwork            = google_compute_subnetwork.user_portal_subnet.id
+  network               = data.google_compute_network.user_portal_vpc.id
+  subnetwork            = data.google_compute_subnetwork.user_portal_subnet.id
   ip_address            = google_compute_address.user_portal_internal_vip.id
   depends_on            = [google_compute_subnetwork.regional_proxy_subnet]
 }
@@ -432,8 +431,8 @@ resource "google_compute_forwarding_rule" "user_portal_https_fw_rule" {
   load_balancing_scheme = "INTERNAL_MANAGED"
   port_range            = "443"
   target                = google_compute_region_target_https_proxy.user_portal_https_proxy[0].id
-  network               = google_compute_network.user_portal_vpc.id
-  subnetwork            = google_compute_subnetwork.user_portal_subnet.id
+  network               = data.google_compute_network.user_portal_vpc.id
+  subnetwork            = data.google_compute_subnetwork.user_portal_subnet.id
   ip_address            = google_compute_address.user_portal_internal_vip.id
   depends_on            = [google_compute_subnetwork.regional_proxy_subnet]
 }

@@ -146,6 +146,10 @@ def test_sync_job_and_gcp_deployment_manifests(
     assert "google_artifact_registry_repository" in tf_main
     assert "resolved_ssl_certificate_id" in tf_main
     assert "GOOGLE_OAUTH_CREDENTIALS" in tf_main
+    assert 'data "google_compute_network" "user_portal_vpc"' in tf_main
+    assert 'data "google_compute_subnetwork" "user_portal_subnet"' in tf_main
+    assert 'resource "google_compute_network" "user_portal_vpc"' not in tf_main
+    assert 'resource "google_compute_subnetwork" "user_portal_subnet"' not in tf_main
     assert "user_portal_source_bucket" not in tf_main
     assert "google_privateca_ca_pool" not in tf_main
     assert "google_certificate_manager_certificate" not in tf_main

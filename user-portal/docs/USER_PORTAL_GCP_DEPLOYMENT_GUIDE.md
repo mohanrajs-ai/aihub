@@ -110,10 +110,12 @@ cp user-portal/deploy/config.env.example user-portal/deploy/config.env
 
 Edit `user-portal/deploy/config.env`:
 ```bash
-# 1. Target Google Cloud Project, Organization ID & Region (Required)
+# 1. Target Google Cloud Project, Organization ID, Region, Existing VPC & Subnet (Required)
 export GCP_PROJECT_ID="<YOUR_GCP_PROJECT_ID>"
 export GCP_ORG_ID="<YOUR_GCP_ORGANIZATION_ID>"
 export GCP_REGION="us-central1"
+export VPC_NAME="<YOUR_EXISTING_VPC_NAME>"
+export SUBNET_NAME="<YOUR_EXISTING_SUBNET_NAME>"
 
 # 2. Google Artifact Registry Source (GENERIC) & Image (DOCKER) Settings
 export AR_SOURCE_REPO="ge-user-portal-source"
@@ -223,7 +225,7 @@ gcloud builds submit --no-source \
   --substitutions="_REGION=${GCP_REGION},_AR_SOURCE_REPO=${AR_SOURCE_REPO},_SOURCE_PACKAGE=${SOURCE_PACKAGE},_SOURCE_VERSION=${SOURCE_VERSION},_AR_REPO=${AR_REPO},_IMAGE_NAME=${IMAGE_NAME},_TAG=${IMAGE_TAG},_OAUTH_SECRET=${OAUTH_SECRET:-ge-oauth-credentials},_SSL_CERTIFICATE_ID=${SSL_CERTIFICATE_ID}" \
   --project="${GCP_PROJECT_ID}"
 
-# 4. Apply the Terraform stack (attaches SSL_CERTIFICATE_ID, mounts OAuth secret & grants org-level Cloud Identity group viewer role)
+# 4. Apply the Terraform stack (uses existing VPC_NAME & SUBNET_NAME, attaches SSL_CERTIFICATE_ID, mounts OAuth secret & grants org-level Cloud Identity group viewer role)
 export GCP_ORG_ID="${GCP_ORG_ID:-$(gcloud organizations list --format='value(ID)' --limit=1)}"
 cd user-portal/deploy/terraform
 terraform init
@@ -232,6 +234,8 @@ terraform apply \
   -var="project_id=${GCP_PROJECT_ID}" \
   -var="org_id=${GCP_ORG_ID}" \
   -var="region=${GCP_REGION}" \
+  -var="vpc_name=${VPC_NAME}" \
+  -var="subnet_name=${SUBNET_NAME}" \
   -var="ar_source_repo_id=${AR_SOURCE_REPO}" \
   -var="ar_repo_id=${AR_REPO}" \
   -var="container_image=${IMAGE_URI}" \
@@ -243,8 +247,8 @@ terraform apply \
 | Layer | Terraform Resources Created Automatically |
 | :--- | :--- |
 | **GCP APIs** | `google_project_service.enabled_apis` (Run, Build, Artifact Registry, SQL Admin, Compute, Service Networking, Secret Manager, Scheduler, Discovery Engine, Cloud Identity) |
-| **Google Artifact Registry** | `google_artifact_registry_repository.user_portal_source_repo` (`GENERIC` source repository) + `google_artifact_registry_repository.user_portal_repo` (`DOCKER` image repository in `${GCP_REGION}`) |
-| **VPC, Subnets & PSA** | `google_compute_network.user_portal_vpc`, `google_compute_subnetwork.user_portal_subnet` (Direct VPC Egress + ILB), `google_compute_subnetwork.regional_proxy_subnet` (`REGIONAL_MANAGED_PROXY`), `google_service_networking_connection.private_vpc_connection` |
+| **Google Artifact Registry** | `data.google_artifact_registry_repository.user_portal_source_repo` (`GENERIC` source repository) + `data.google_artifact_registry_repository.user_portal_repo` (`DOCKER` image repository in `${GCP_REGION}`) |
+| **VPC, Subnets & PSA** | References existing `data.google_compute_network.user_portal_vpc` (`var.vpc_name`) and `data.google_compute_subnetwork.user_portal_subnet` (`var.subnet_name`), and provisions `google_compute_subnetwork.regional_proxy_subnet` (`REGIONAL_MANAGED_PROXY`) and `google_service_networking_connection.private_vpc_connection` |
 | **IAM & Service Accounts** | `google_service_account.web_sa` (`sa-user-portal-web`), `google_service_account.sync_sa` (`sa-user-portal-sync`), project-level `google_project_iam_member` bindings, and organization-level `google_organization_iam_member.cloud_identity_groups_viewer` (`roles/cloudidentity.groupsViewer` on `org_id`) |
 | **Cloud SQL HA (`geapphub_user`)** | `google_sql_database_instance.user_pg` (PostgreSQL 16, `REGIONAL` 2-zone HA, Private IP only, PITR), `google_sql_database.geapphub_user_db`, `google_sql_user.appuser` |
 | **GCP Secret Manager** | `google_secret_manager_secret.secrets` for `ge-oauth-credentials` (OAuth Client ID + Secret JSON), `ge-user-db-url`, and `ge-user-session-secret` |
@@ -353,7 +357,7 @@ Expected response:
 
    gcloud compute firewall-rules describe fw-allow-iap-rdp-ssh --project="${GCP_PROJECT_ID}" >/dev/null 2>&1 || \
      gcloud compute firewall-rules create fw-allow-iap-rdp-ssh \
-       --network="vpc-ge-user-portal" \
+       --network="${VPC_NAME}" \
        --direction="INGRESS" \
        --action="ALLOW" \
        --rules="tcp:22,tcp:3389" \
@@ -364,8 +368,8 @@ Expected response:
      gcloud compute instances create vm-ilb-bastion \
        --zone="${GCP_REGION:-us-central1}-a" \
        --machine-type="e2-micro" \
-       --network="vpc-ge-user-portal" \
-       --subnet="subnet-ge-user-portal" \
+       --network="${VPC_NAME}" \
+       --subnet="${SUBNET_NAME}" \
        --no-address \
        --shielded-secure-boot \
        --shielded-vtpm \
