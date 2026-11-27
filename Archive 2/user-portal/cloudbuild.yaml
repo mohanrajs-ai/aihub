@@ -12,6 +12,8 @@
 
 substitutions:
   _REGION: us-central1
+  _VPC_NAME: default
+  _SUBNET_NAME: default
   _AR_SOURCE_REPO: ge-user-portal-source
   _SOURCE_PACKAGE: user-portal-source
   _SOURCE_VERSION: v1
@@ -146,6 +148,8 @@ steps:
         terraform -chdir=deploy/terraform apply -auto-approve -input=false \
           -var="project_id=${PROJECT_ID}" \
           -var="region=$${REGION:-us-central1}" \
+          -var="vpc_name=${_VPC_NAME}" \
+          -var="subnet_name=${_SUBNET_NAME}" \
           -var="ar_source_repo_id=$${AR_SOURCE_REPO:-ge-user-portal-source}" \
           -var="ar_repo_id=$${AR_REPO:-ge-user-portal-repo}" \
           -var="container_image=$${IMAGE_URI}" \

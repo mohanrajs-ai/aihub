@@ -309,8 +309,8 @@ resource "google_cloud_run_v2_job" "user_portal_sync_job" {
       vpc_access {
         egress = "PRIVATE_RANGES_ONLY"
         network_interfaces {
-          network    = google_compute_network.user_portal_vpc.id
-          subnetwork = google_compute_subnetwork.user_portal_subnet.id
+          network    = data.google_compute_network.user_portal_vpc.id
+          subnetwork = data.google_compute_subnetwork.user_portal_subnet.id
         }
       }
 

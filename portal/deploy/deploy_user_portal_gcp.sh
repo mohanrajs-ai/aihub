@@ -24,6 +24,8 @@ if [[ -f "${SCRIPT_DIR}/config.env" ]]; then
 fi
 
 : "${GCP_PROJECT_ID:?ERROR: GCP_PROJECT_ID must be set in user-portal/deploy/config.env or environment (e.g., export GCP_PROJECT_ID=<your-gcp-project-id>)}"
+: "${VPC_NAME:?ERROR: VPC_NAME must be set in user-portal/deploy/config.env or environment (e.g., export VPC_NAME=<your-existing-vpc-name>)}"
+: "${SUBNET_NAME:?ERROR: SUBNET_NAME must be set in user-portal/deploy/config.env or environment (e.g., export SUBNET_NAME=<your-existing-subnet-name>)}"
 PROJECT_ID="${GCP_PROJECT_ID}"
 ORG_ID="${GCP_ORG_ID:-$(gcloud organizations list --format='value(ID)' --limit=1 2>/dev/null || true)}"
 REGION="${GCP_REGION:-us-central1}"
@@ -46,6 +48,7 @@ echo " Gemini AI Hub — User Portal Deployment Pipeline"
 echo " Source Dir        : ${PORTAL_DIR}"
 echo " Project           : ${PROJECT_ID}"
 echo " Region            : ${REGION}"
+echo " VPC / Subnet      : ${VPC_NAME} / ${SUBNET_NAME}"
 echo " AR Source Repo    : ${AR_SOURCE_REPO} (${SOURCE_PACKAGE}:${SOURCE_VERSION})"
 echo " AR Docker Repo    : ${REGION}-docker.pkg.dev/${PROJECT_ID}/${AR_REPO}"
 echo " Container Image   : ${IMAGE_URI}"
@@ -187,6 +190,8 @@ import_if_missing() {
     terraform -chdir="${TF_DIR}" import \
       -var="project_id=${PROJECT_ID}" \
       -var="region=${REGION}" \
+      -var="vpc_name=${VPC_NAME}" \
+      -var="subnet_name=${SUBNET_NAME}" \
       -var="ar_source_repo_id=${AR_SOURCE_REPO}" \
       -var="ar_repo_id=${AR_REPO}" \
       -var="container_image=${IMAGE_URI}" \
@@ -211,6 +216,8 @@ terraform -chdir="${TF_DIR}" apply -auto-approve \
   -var="project_id=${PROJECT_ID}" \
   -var="org_id=${ORG_ID}" \
   -var="region=${REGION}" \
+  -var="vpc_name=${VPC_NAME}" \
+  -var="subnet_name=${SUBNET_NAME}" \
   -var="ar_source_repo_id=${AR_SOURCE_REPO}" \
   -var="ar_repo_id=${AR_REPO}" \
   -var="container_image=${IMAGE_URI}" \

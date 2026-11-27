@@ -63,10 +63,14 @@ variable "cloud_run_ingress" {
   default     = "INGRESS_TRAFFIC_ALL"
 }
 
-variable "subnet_cidr" {
-  description = "Primary CIDR range for the User Portal Direct VPC Egress & Internal ALB VIP subnet"
+variable "vpc_name" {
+  description = "Existing VPC network name (or self-link/ID) for Cloud Run Direct VPC Egress, Cloud SQL Private IP, and Internal ALB"
   type        = string
-  default     = "10.128.10.0/24"
+}
+
+variable "subnet_name" {
+  description = "Existing regional subnetwork name (or self-link/ID) in var.region for Cloud Run Direct VPC Egress and Internal ALB VIP"
+  type        = string
 }
 
 variable "proxy_only_subnet_cidr" {

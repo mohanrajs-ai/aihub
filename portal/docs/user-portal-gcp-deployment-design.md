@@ -7,7 +7,7 @@ This document defines the production Google Cloud Platform (GCP) deployment arch
 | Design Dimension | Selected Architecture Decision |
 | :--- | :--- |
 | **1. Compute & Packaging** | **Single Cloud Run v2 Service (`ge-user-portal-web`)** built from [`user-portal/Dockerfile`](../Dockerfile), serving the compiled React 18 SPA (`user-portal/frontend/dist`) and FastAPI backend (`user-portal/backend/app/main.py`) on a single origin (`:8080`). |
-| **2. Ingress & Network Perimeter** | **Terraform-Automated VPC (`vpc-ge-user-portal`), Subnets, Proxy-Only Subnet, and Regional Internal HTTPS Application Load Balancer (`INTERNAL_MANAGED`)** with a private RFC 1918 VIP. |
+| **2. Ingress & Network Perimeter** | **Existing Enterprise VPC (`var.vpc_name`) & Regional Subnet (`var.subnet_name`)** passed via Terraform variables, plus a **Proxy-Only Subnet (`REGIONAL_MANAGED_PROXY`) and Regional Internal HTTPS Application Load Balancer (`INTERNAL_MANAGED`)** with a private RFC 1918 VIP. |
 | **3. TLS Termination (`SSL_CERTIFICATE_ID`)** | **Regional Compute SSL Certificate (`SSL_CERTIFICATE_ID`)** created via `gcloud compute ssl-certificates create` and attached automatically by Terraform to `google_compute_region_target_https_proxy.user_portal_https_proxy` (`:443`). |
 | **4. User Authentication** | **In-App Google Cloud Identity / Microsoft 365 SAML SSO** (`/api/v1/auth/google/login` with `login_hint` email redirect to Google OAuth 2.0 + PKCE and HMAC-SHA256 session tokens), with Client ID & Secret sourced from a single **GCP Secret Manager** JSON secret (`ge-oauth-credentials`). |
 | **5. Database (`geapphub_user`)** | **Cloud SQL for PostgreSQL 16 (`geapphub-user-pg`)** configured with **Regional High Availability (`REGIONAL` 2-zone HA)**, `db-custom-2-8192` (2 vCPU, 8 GiB RAM), Point-in-Time Recovery (PITR), and **Private IP only** accessed via Cloud Run **Direct VPC Egress**. |
@@ -110,25 +110,3 @@ All sensitive authentication and database credentials are stored in **GCP Secret
 | `ge-oauth-credentials` | `ge-user-portal-web` (`GOOGLE_OAUTH_CREDENTIALS`), `cloudbuild.yaml` | Single JSON secret storing both Google OAuth 2.0 Web Application `client_id` and `client_secret` (supports standard `client_secret.json` or `{"client_id":"...","client_secret":"..."}`). |
 | `ge-user-session-secret` | `ge-user-portal-web` (`SESSION_SECRET`) | 256-bit cryptographic secret used to sign and verify HMAC-SHA256 OAuth state tokens and user session tokens. |
 | `ge-user-db-url` | `ge-user-portal-web`, `ge-user-portal-sync-job` (`DATABASE_URL`) | SQLAlchemy `postgresql+psycopg://` connection string targeting the `geapphub_user` database over Cloud SQL Private IP. |
-
----
-
-## 6. GCP-Native CI/CD Pipeline Option (Google Artifact Registry + Cloud Build + `clouddeploy.googleapis.com`)
-
-In addition to Terraform-driven deployment, the User Portal supports a 100% **GCP-native Continuous Integration & Continuous Delivery (CI/CD)** pipeline combining **Google Artifact Registry (GAR)** (`artifactregistry.googleapis.com`), **Google Cloud Build** (`cloudbuild.googleapis.com`), and **Google Cloud Deploy** (`clouddeploy.googleapis.com`) defined under [`user-portal/deploy/clouddeploy/`](../deploy/clouddeploy/).
-
-```mermaid
-flowchart LR
-  GAR_Src["1. GAR Generic Repo<br/>(ge-user-portal-source)<br/>Versioned Source Archive"] -->|"Pub/Sub gcr Topic<br/>or --no-source"| CB["2. Cloud Build CI<br/>(cloudbuild-cicd.yaml)<br/>Verify Secret & Docker Build"]
-  CB -->|"Push Container Image"| GAR_Img["3. GAR Docker Repo<br/>(ge-user-portal-repo)<br/>ge-user-portal:tag"]
-  CB -->|"gcloud deploy releases create"| CD["4. Cloud Deploy CD<br/>(clouddeploy.googleapis.com)<br/>ge-user-portal-pipeline"]
-  GAR_Img -.->|"Image Digest"| CD
-  CD -->|"Skaffold Render & Rollout<br/>(prod-user-portal)"| CR["5. Cloud Run v2 Service<br/>(ge-user-portal-web)"]
-```
-
-| Stage | Service & API | Manifest / Artifact | Description |
-| :--- | :--- | :--- | :--- |
-| **1. Source Artifact Storage** | **Google Artifact Registry (GAR)** (`artifactregistry.googleapis.com`) | `ge-user-portal-source` (`GENERIC`) | Stores versioned source archives (`user-portal-source:v1`) and emits Pub/Sub notifications on the `gcr` topic without requiring a GCS source bucket. |
-| **2. Continuous Integration (CI)** | **Google Cloud Build** (`cloudbuild.googleapis.com`) | [`deploy/clouddeploy/cloudbuild-cicd.yaml`](../deploy/clouddeploy/cloudbuild-cicd.yaml) | Pulls source from GAR, validates `ge-oauth-credentials` in Cloud Secret Manager, builds `user-portal/Dockerfile`, pushes the image to GAR (`ge-user-portal-repo`), and triggers a Cloud Deploy release. |
-| **3. Container Registry** | **Google Artifact Registry (GAR)** (`artifactregistry.googleapis.com`) | `ge-user-portal-repo` (`DOCKER`) | Stores immutable container images (`${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/ge-user-portal-repo/ge-user-portal:${IMAGE_TAG}`). |
-| **4. Continuous Delivery (CD)** | **Google Cloud Deploy** (`clouddeploy.googleapis.com`) | [`clouddeploy.yaml`](../deploy/clouddeploy/clouddeploy.yaml), [`skaffold.yaml`](../deploy/clouddeploy/skaffold.yaml), [`run-service.yaml`](../deploy/clouddeploy/run-service.yaml) | Renders the declarative Cloud Run v2 Knative manifest via Skaffold (`v4beta7`), creates versioned releases (`rel-*`), orchestrates rollouts to `prod-user-portal` (`ge-user-portal-web`), and provides 1-command rollbacks (`gcloud deploy targets rollback`). |
